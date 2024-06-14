@@ -6,6 +6,8 @@ class Translator:
     def __init__(self, sequence, table=1, rna=False):
         if table not in legal_tables():
             raise ValueError(f"Table {table} is not a legal table")
+        if table in stopless_tables():
+            print(f"[WARNING] Table {table} does not contain stop codons")
         self.table = table
         self.rna = rna
         self.sequence = standardize_sequence(sequence)
@@ -33,6 +35,11 @@ class Translator:
     def legal_tables():
         return {
             1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 33
+        }
+    
+    def stopless_tables():
+        return {
+            27, 28, 31
         }
 
     def load_translation_table(table_num=1):
