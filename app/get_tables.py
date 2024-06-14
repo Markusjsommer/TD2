@@ -6,7 +6,7 @@ import json
 import os, sys
 import argparse
 import re
-import itertools
+from itertools import product
 
 
 def genetic_codes(input_file, output_dir, verbose=False, three_letter=False):
@@ -61,65 +61,39 @@ def genetic_codes(input_file, output_dir, verbose=False, three_letter=False):
         if codons:
             save_table(output_dir, trans_table, {'initiators': sorted(list(initiators)), 'codons': codons})
 
-def generate_all_ambiguous_codons(codons):
-    """Generate all possible ambiguous codons for a given set of codons."""
-    # Transpose the list of codons to get bases at each position
-    bases_at_positions = [set(bases) for bases in zip(*codons)]
-    print(bases_at_positions)
-    
-    # Generate all possible ambiguous codons
-    ambiguous_combinations = [[]]
-    for bases in bases_at_positions:
-        new_combinations = []
-        for combination in ambiguous_combinations:
-            # Find ambiguous nucleotides that can represent the current set of bases
-            for ambiguous, possible_bases in ambiguous_nucleotides.items():
-                if isinstance(possible_bases, list) and bases <= set(possible_bases):
-                    new_combinations.append(combination + [ambiguous])
-        ambiguous_combinations = new_combinations
-    
-    # Convert each combination back into a codon string
-    ambiguous_codons = [''.join(codon) for codon in ambiguous_combinations]
-    return ambiguous_codons
-
 def add_ambiguous_codons(data, verbose=False):
     """Update the translation table by adding possible ambiguous codons."""
-
-    ambiguous_nucleotides = ambiguous_to_standard()
-
-    updated_codons = data['codons'].copy()
     
-    # group codons by amino acid
-    amino_acid_to_codons = {}
-    for codon, amino_acid in data['codons'].items():
-        if amino_acid not in amino_acid_to_codons:
-            amino_acid_to_codons[amino_acid] = []
-        amino_acid_to_codons[amino_acid].append(codon)
-    
-    # determine possible ambiguous codons
-    for amino_acid, codons in amino_acid_to_codons.items():
-        for i in range(3):  # each position in the codon
-            # collect nucleotides at the same position in all codons
-            position_nucleotides = [set(c[i] for c in codons)]
-            possible_ambiguous = list(itertools.product(*position_nucleotides))
+    amb2std = ambiguous_to_standard()
+
+    # generate all possible 3-letter codons using IUPAC codes
+    iupac_bases = list(amb2std.keys())
+    all_combinations = [''.join(codon) for codon in product(iupac_bases, repeat=3)]
+
+    def expand_ambiguous_codon(codon):
+        """Expand an ambiguous codon into all possible standard codons it can represent."""
+        return [''.join(bases) for bases in product(*[amb2std[nuc] for nuc in codon])]
+
+    def generate_ambiguous_translation_dict(codon_to_amino_acid):
+        """Generate a dictionary of ambiguous codons that map to a single amino acid."""
+        ambiguous_translation_dict = {}
+
+        for ambiguous_codon in all_combinations:
+            expanded_codons = expand_ambiguous_codon(ambiguous_codon)
             
-            for ambiguous_codon in possible_ambiguous:
-                ambiguous_codon = ''.join(ambiguous_codon)
-                possible_codon = True
-                
-                for pos, char in enumerate(ambiguous_codon):
-                    if char not in ambiguous_nucleotides:
-                        possible_codon = False
-                        break
-                    valid_bases = ambiguous_nucleotides[char] if isinstance(ambiguous_nucleotides[char], list) else [ambiguous_nucleotides[char]]
-                    if any(c[pos] not in valid_bases for c in codons):
-                        possible_codon = False
-                        break
-                
-                if possible_codon:
-                    updated_codons[ambiguous_codon] = amino_acid
+            # find the corresponding amino acid for each expanded codon
+            amino_acids = {codon_to_amino_acid[codon] for codon in expanded_codons if codon in codon_to_amino_acid}
+            
+            # if all expanded codons map to the same amino acid, add to the dictionary
+            if len(amino_acids) == 1:
+                ambiguous_translation_dict[ambiguous_codon] = amino_acids.pop()
+        
+        return ambiguous_translation_dict
 
-    data['codons'] = updated_codons
+    # generate the final translation dictionary
+    updated_data = generate_ambiguous_translation_dict(data['codons'])
+    data['codons'] = updated_data
+
     return data
 
 def save_table(directory, table_number, data):
@@ -130,7 +104,7 @@ def save_table(directory, table_number, data):
     with open(file_path, 'w', encoding='utf-8') as json_file:
         json.dump(data, json_file, indent=2)
 
-def load_tables(directory, tables=[]):
+def load_tables(directory, tables=None):
     """Loads genetic codes from JSON files in the specified directory."""
     genetic_codes = {}
     
@@ -140,7 +114,7 @@ def load_tables(directory, tables=[]):
                 table_number = int(os.path.splitext(file_name)[0].split('_')[-1])
             except ValueError: # skip invalid names
                 continue
-            if table_number not in tables: # only get specified tables
+            if tables and table_number not in tables: # only get specified tables
                 continue
 
             file_path = os.path.join(directory, file_name)
@@ -193,6 +167,19 @@ def print_table(table_number, data, columns=4):
     print("=" * (17 * columns - 1))
     print()
 
+    # print codon for each amino acid
+    amino_acid_to_codons = {}
+    for codon, amino_acid in data['codons'].items():
+        if amino_acid not in amino_acid_to_codons:
+            amino_acid_to_codons[amino_acid] = []
+        amino_acid_to_codons[amino_acid].append(codon)
+    
+    print("Codons for each Amino Acid:")
+    for amino_acid, codons in sorted(amino_acid_to_codons.items()):
+        print(f"{amino_acid}: {', '.join(sorted(codons))}")
+    print("=" * (17 * columns - 1))
+    print()
+
 def ambiguous_to_standard():
     return {
         'A': ['A'], 'C': ['C'], 'G': ['G'], 'T': ['T'],
@@ -216,19 +203,20 @@ if __name__ == "__main__":
     genetic_codes(args.f, args.o, args.v, args.t)
 
     # pretty print example tables
-    example_tables = [1, 11, 21, 31]
+    example_tables = [1]
     genetic_code_data = load_tables(args.o, example_tables)
     for table_number, data in genetic_code_data.items():
         print_table(table_number, data)
 
     # add ambiguous codons to all tables
     genetic_code_data = load_tables(args.o)
+    print(genetic_code_data)
     for table_number, data in genetic_code_data.items():
         updated_data = add_ambiguous_codons(data) 
+        print_table(table_number, updated_data)
         save_table(args.o, table_number, updated_data)
     
     # pretty print modified example tables
     genetic_code_data = load_tables(args.o, example_tables)
     for table_number, data in genetic_code_data.items():
         print_table(table_number, data)
-       
