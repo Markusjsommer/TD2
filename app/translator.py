@@ -39,33 +39,15 @@ class Translator:
         '''Get the corresponding translation table for the genetic code'''
         return json.loads(open(f'{table_num}.json').read())
 
-def ambiguous_to_standard():
-    return {
-        'A': ['A'], 'C': ['C'], 'G': ['G'], 'T': ['T'],
-        'R': ['A', 'G'], 'Y': ['C', 'T'], 'S': ['G', 'C'],
-        'W': ['A', 'T'], 'K': ['G', 'T'], 'M': ['A', 'C'],
-        'B': ['C', 'G', 'T'], 'D': ['A', 'G', 'T'],
-        'H': ['A', 'C', 'T'], 'V': ['A', 'C', 'G'],
-        'N': ['A', 'C', 'G', 'T']
-    }
-
-def standard_to_ambiguous():
-    return {
-        'A': 'A', 'C': 'C', 'G': 'G', 'T': 'T', 
-        'AG': 'R', 'CT': 'Y', 'CG': 'S', 'AT': 'W', 'GT': 'K', 'AC': 'M', 
-        'CGT': 'B', 'AGT': 'D', 'ACT': 'H', 'ACG': 'V', 
-        'ACGT': 'N'
-    }
-
-def one_to_three_letter():
-    return {
-        "A": "Ala", "R": "Arg", "N": "Asn", "D": "Asp",
-        "C": "Cys", "Q": "Gln", "E": "Glu", "G": "Gly",
-        "H": "His", "I": "Ile", "L": "Leu", "K": "Lys",
-        "M": "Met", "F": "Phe", "P": "Pro", "S": "Ser",
-        "T": "Thr", "W": "Trp", "Y": "Tyr", "V": "Val",
-        "*": "Ter"
-    }
+    def one_to_three_letter():
+        return {
+            "A": "Ala", "R": "Arg", "N": "Asn", "D": "Asp",
+            "C": "Cys", "Q": "Gln", "E": "Glu", "G": "Gly",
+            "H": "His", "I": "Ile", "L": "Leu", "K": "Lys",
+            "M": "Met", "F": "Phe", "P": "Pro", "S": "Ser",
+            "T": "Thr", "W": "Trp", "Y": "Tyr", "V": "Val",
+            "*": "Ter"
+        }
 
 # TODO: translate the sequence -> string, and then mark where start codons are (using initiators) -> list[int]
 

@@ -1,20 +1,15 @@
 """
-Parse the NCBI Table that is, by default in codes/ncbi_tables.txt and create a json object
+Parse the NCBI Table that is, by default in app/tables/ncbi_tables.txt and create a json object
 Adapted from https://github.com/linsalrob/genetic_codes/blob/main/pygenetic_code/ncbi_table_to_json.py
 """
 import json
 import os, sys
 import argparse
 import re
-# from app.translator import standard_to_ambiguous, ambiguous_to_standard
 
-def genetic_codes(args):
+def genetic_codes(input_file, output_dir, verbose=False, three_letter=False):
     """Parses genetic codes from NCBI table and stores each into a separate JSON object"""
-    input_file = args.f
-    verbose = args.v
-    output_dir = args.o  
-
-    # Ensure the output directory exists
+    # ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
     head = re.compile(r'transl_table=(\d+)')
@@ -48,14 +43,14 @@ def genetic_codes(args):
                 i = 0
                 while i < len(p):
                     codon = p[i]
-                    i += 2
+                    i += 2 if three_letter else 1
                     if codon in codons:
                         if verbose:
                             print(
                                 f"For {codon} in trans table {trans_table} we already had {codons[codon]} but now "
                                 f"we found {p[i]}", file=sys.stderr)
                     codons[codon] = p[i]
-                    i += 1
+                    i += 1 if three_letter else 2
                     if i < len(p) and p[i] == 'i':
                         initiators.add(codon)
                         i += 1
@@ -133,6 +128,16 @@ def print_table(table_number, data, columns=4):
     
     print("=" * (17 * columns - 1))
     print()
+
+def ambiguous_to_standard():
+    return {
+        'A': ['A'], 'C': ['C'], 'G': ['G'], 'T': ['T'],
+        'R': ['A', 'G'], 'Y': ['C', 'T'], 'S': ['G', 'C'],
+        'W': ['A', 'T'], 'K': ['G', 'T'], 'M': ['A', 'C'],
+        'B': ['C', 'G', 'T'], 'D': ['A', 'G', 'T'],
+        'H': ['A', 'C', 'T'], 'V': ['A', 'C', 'G'],
+        'N': ['A', 'C', 'G', 'T']
+    }
     
 
 if __name__ == "__main__":
@@ -140,9 +145,10 @@ if __name__ == "__main__":
     parser.add_argument('-f', type=str, help="Path to the input file containing genetic codes.", default='./tables/ncbi_tables.txt')
     parser.add_argument('-o', type=str, help="Directory where the JSON files will be saved.", default='./tables')
     parser.add_argument('-v', action='store_true', help="Enable verbose output.")
+    parser.add_argument('-t', action='store_true', help="Use three-letter amino acid codes.")
     args = parser.parse_args()
 
-    genetic_codes(args)
+    genetic_codes(args.f, args.o, args.v, args.t)
 
     example_tables = [1, 11, 21, 31]
     genetic_code_data = load_tables(args.o, example_tables)
