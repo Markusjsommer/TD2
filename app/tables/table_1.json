@@ -1,8 +1,8 @@
 {
   "initiators": [
+    "ATG",
     "CTG",
-    "TTG",
-    "ATG"
+    "TTG"
   ],
   "codons": {
     "TTT": "F",

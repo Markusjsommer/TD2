@@ -1,11 +1,11 @@
 {
   "initiators": [
+    "ATA",
+    "ATC",
+    "ATG",
     "ATT",
     "GTG",
-    "ATG",
-    "ATA",
-    "TTG",
-    "ATC"
+    "TTG"
   ],
   "codons": {
     "TTT": "F",
