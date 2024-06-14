@@ -32,11 +32,17 @@ setup(
     },
     python_requires=">=3.8",
     entry_points={
-            'console_scripts': [
+        'console_scripts': [
             'transmark = app.transmark:main',
         ],
     },
+    #entry_points={
+    #        'console_scripts': [
+    #        'transmark = app.transmark:main',
+    #    ],
+    #},
     #include_package_data=True,
     #package_data={'': ['/data/model_state_dict.pt']},
     
 )
+
