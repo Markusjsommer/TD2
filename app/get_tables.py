@@ -1,7 +1,3 @@
-"""
-Parse the NCBI Table that is, by default in app/tables/ncbi_tables.txt and create a json object
-Adapted from https://github.com/linsalrob/genetic_codes/blob/main/pygenetic_code/ncbi_table_to_json.py
-"""
 import json
 import os, sys
 import argparse
@@ -10,7 +6,7 @@ from itertools import product
 
 
 def genetic_codes(input_file, output_dir, verbose=False, three_letter=False):
-    """Parses genetic codes from NCBI table and stores each into a separate JSON object"""
+    """Parses genetic codes from NCBI table and stores each into a separate JSON object (Adapted from https://github.com/linsalrob/genetic_codes/blob/main/pygenetic_code/ncbi_table_to_json.py)"""
     # ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
