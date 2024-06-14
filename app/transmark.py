@@ -145,3 +145,6 @@ def main():
         seq_ORF_list = find_all_ORFs(seq, min_len_aa, strand_specific, complete_orfs_only, genetic_code)
     
     print("Done...")
+
+if __name__ == "__main__":
+    mainfoo()

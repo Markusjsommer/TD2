@@ -1,4 +1,4 @@
-from app.TD2 import reverse_complement
+from app.transmark import reverse_complement
 
 def test_reverse_complement_default():
     revcomp = reverse_complement("GATACA")
