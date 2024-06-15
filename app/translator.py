@@ -1,6 +1,4 @@
-
 import json
-import argparse
 
 class Translator:
     def __init__(self, table=1, rna=False, three_letter=False):
@@ -77,6 +75,8 @@ def one_to_three_letter():
     }
 
 def main():
+    import argparse
+    
     parser = argparse.ArgumentParser(description='DNA to Protein Translator')
     parser.add_argument('sequence', type=str, help='DNA sequence to translate')
     parser.add_argument('-t', '--table', type=int, default=1, help='Translation table to use')
