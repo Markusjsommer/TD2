@@ -67,13 +67,13 @@ class Translator:
         while start_index < len(start_positions) and end_index < len(end_positions):
             if start_positions[start_index] <= cur_pos:
                 start_index += 1
-                continue
             elif end_positions[end_index] <= start_positions[start_index]:
                 end_index += 1
-                continue
             else:
                 orfs.append((start_positions[start_index], end_positions[end_index]))
                 cur_pos = end_positions[end_index]
+                start_index += 1
+                end_index += 1
             
         return protein_sequence, orfs
 
