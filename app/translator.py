@@ -88,7 +88,7 @@ def standardize_sequence(sequence, rna=False):
 
 def load_translation_table(table_num=1):
     '''Get the corresponding translation table for the genetic code'''
-    with open(f'./tables/table_{table_num}.json', 'r') as file:
+    with open(f'app/tables/table_{table_num}.json', 'r') as file:
         data = json.load(file)
     return data['codons'], data['initiators']
 

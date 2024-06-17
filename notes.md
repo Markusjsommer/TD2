@@ -37,6 +37,8 @@
 
 - orf finder
     - is it worth it to encode the dna sequence into 2 bit to make it marginally faster? -> benchmark
+    - we are assuming orfs are non-overlapping, right? the current logic of the finder is maximized for efficiency using this assumption
+
 
 # Links
 https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi?chapter=tgencodes#SG33
