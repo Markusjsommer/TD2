@@ -11,7 +11,11 @@ class Translator:
         self.three_letter = three_letter
     
     def translate(self, sequence):
-        '''Translate the given DNA sequence to protein sequence'''
+        '''
+        Translate the given sequence to protein sequence
+        Parameters: sequence (str): DNA/RNA sequence to translate
+        Returns: Tuple[str, List[int]]: Translated protein sequence and list of initiator positions
+        '''
         translation_dict, initiators = load_translation_table(self.table)
         dna_sequence = standardize_sequence(sequence, self.rna)
         if set(dna_sequence) - legal_letters(): 
