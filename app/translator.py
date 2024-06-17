@@ -6,7 +6,8 @@ class Translator:
             raise ValueError(f"Table {table} is not a legal table")
         if table in stopless_tables():
             print(f"[WARNING] Table {table} does not contain stop codons")
-        self.table = table
+        self.table_num = table
+        self.table, self.initiators = load_translation_table(table)
         self.rna = rna
         self.three_letter = three_letter
     
@@ -14,38 +15,65 @@ class Translator:
         '''
         Translate the given sequence to protein sequence
         Parameters: sequence (str): DNA/RNA sequence to translate
-        Returns: Tuple[str, List[int]]: Translated protein sequence and list of initiator positions
+        Returns: Tuple[str, List[int], List[int]]: Translated protein sequence, (sorted) initiator positions, and (sorted) stop positions
         '''
-        translation_dict, initiators = load_translation_table(self.table)
         dna_sequence = standardize_sequence(sequence, self.rna)
         if set(dna_sequence) - legal_letters(): 
             raise ValueError(f"Sequence {dna_sequence} contains illegal letters")
 
         protein_sequence = []
-        initiator_positions = []
+        start_positions = []
+        end_positions = []
 
         for i in range(0, len(dna_sequence), 3):
             codon = dna_sequence[i:i+3]
-            amino_acid = translation_dict.get(codon, 'X')
+            amino_acid = self.table.get(codon, 'X')
+            if codon in self.initiators:
+                start_positions.append(i // 3)
+            elif amino_acid == '*':
+                end_positions.append(i // 3)
             if self.three_letter:
                 amino_acid = one_to_three_letter().get(amino_acid, 'Unk')
             protein_sequence.append(amino_acid)
 
-            if codon in initiators:
-                initiator_positions.append(i // 3)
-
         protein_string = ''.join(protein_sequence)
 
-        return protein_string, initiator_positions
+        return protein_string, start_positions, end_positions
+    
+    def translate_three_frames(self, sequence, strand='+'):
+        '''
+        Translate the given sequence in all three frames of given strand
+        Parameters: sequence (str): DNA/RNA sequence to translate
+        Returns: List[Tuple[str, List[int]]]: List of translated protein sequences and their initiator positions
+        '''
+        translations = []
+        for frame in range(3):
+            translated_sequence, initiator_positions, end_positions = self.translate(sequence[frame:])
+            translations.append((f'{strand}{frame+1}', translated_sequence, initiator_positions, end_positions))
+        return translations
+    
+    def find_orfs(self, sequence):
+        '''
+        Find all open reading frames in the given sequence
+        Parameters: sequence (str): DNA/RNA sequence to analyze
+        Returns: List[Tuple[str, int, int, str]]: List of ORFs with their frame, start position, end position, and translated sequence
+        '''
+        orfs = []
+        for frame in range(3):
+            translated_sequence, initiator_positions, end_positions = self.translate(sequence[frame:])
+            for start in initiator_positions:
+                for end in end_positions:
+                    if end > start:
+                        orfs.append((f'+{frame+1}', start, end, translated_sequence[start:end]))
+        return orfs
 
 
 def standardize_sequence(sequence, rna=False):
     '''Ensures that given sequence is valid DNA, upper case, and multiple of 3'''
     dna = sequence.upper().strip()
+    dna = dna[:-(len(dna) % 3)] # truncates to last full codon
     if rna:
-        dna = dna.replace('U', 'T')
-    if len(dna) % 3 != 0:
-        dna += 'N' * (3 - len(dna) % 3)
+        dna = dna.replace('U', 'T')        
     return dna
 
 def load_translation_table(table_num=1):

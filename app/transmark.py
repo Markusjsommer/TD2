@@ -127,7 +127,7 @@ def find_all_ORFs(seq, min_len_aa, strand_specific, complete_orfs_only, genetic_
         
     return None
 
-def translate_six_frames(translation_table, seq, is_rna=False):
+def translate_three_frames(translation_table, seq, strand, is_rna=False):
     dna2prot = Translator(translation_table, is_rna)
     pass
     
@@ -151,7 +151,7 @@ def main():
     use_mmseqs2 = args.use_mmseqs2
     
     
-    verbose = args.verbose
+    verbose = args.verbose # work on this at the end
 
     print("Python", sys.version, "\n")
     
@@ -162,19 +162,18 @@ def main():
     # orfanage for finding orfs
     # psauron for scoring orfs
     # mmseqs2 for clustering orfs
-
-    # 
     
     # load FASTA
     description_list, seq_list = load_fasta(args.transcripts)
     
     # find all possible ORFs
-    print("Finding all ORFs with protein length >=", min_len_aa)
+    print(f"Step 1: Finding all ORFs with protein length >= {min_len_aa}", flush=True)
+    start_time = time.time()
     all_ORF_list = []
     for seq in seq_list:
         seq_ORF_list = find_all_ORFs(seq, min_len_aa, strand_specific, complete_orfs_only, genetic_code)
     
-    print("Done...")
+    print(f"Done. {time.time() - start_time:.2f} seconds", flush=True)
 
 if __name__ == "__main__":
     main()
