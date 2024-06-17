@@ -56,16 +56,26 @@ class Translator:
         '''
         Find all open reading frames in the given sequence
         Parameters: sequence (str): DNA/RNA sequence to analyze
-        Returns: List[Tuple[str, int, int, str]]: List of ORFs with their frame, start position, end position, and translated sequence
+        Returns: str, List[Tuple[int, int]]: Translated protein sequence and list of ORFs (start, end) positions
         '''
+        protein_sequence, start_positions, end_positions = self.translate(sequence)
         orfs = []
-        for frame in range(3):
-            translated_sequence, initiator_positions, end_positions = self.translate(sequence[frame:])
-            for start in initiator_positions:
-                for end in end_positions:
-                    if end > start:
-                        orfs.append((f'+{frame+1}', start, end, translated_sequence[start:end]))
-        return orfs
+        cur_pos = -1
+        start_index = 0
+        end_index = 0
+               
+        while start_index < len(start_positions) and end_index < len(end_positions):
+            if start_positions[start_index] <= cur_pos:
+                start_index += 1
+                continue
+            elif end_positions[end_index] <= start_positions[start_index]:
+                end_index += 1
+                continue
+            else:
+                orfs.append((start_positions[start_index], end_positions[end_index]))
+                cur_pos = end_positions[end_index]
+            
+        return protein_sequence, orfs
 
 
 def standardize_sequence(sequence, rna=False):
