@@ -34,6 +34,7 @@ class Translator:
 
         return protein_string, initiator_positions
 
+
 def standardize_sequence(sequence, rna=False):
     '''Ensures that given sequence is valid DNA, upper case, and multiple of 3'''
     dna = sequence.upper().strip()
@@ -76,7 +77,7 @@ def one_to_three_letter():
 
 def main():
     import argparse
-    
+
     parser = argparse.ArgumentParser(description='DNA to Protein Translator')
     parser.add_argument('sequence', type=str, help='DNA sequence to translate')
     parser.add_argument('-t', '--table', type=int, default=1, help='Translation table to use')
