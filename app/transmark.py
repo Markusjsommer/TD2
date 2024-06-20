@@ -112,24 +112,35 @@ def complement(seq):
     seq_complement = ''.join([complement.get(base, 'N') for base in seq])
     return seq_complement
     
-def find_all_ORFs(seq, min_len_aa, strand_specific, complete_orfs_only, genetic_code):
+def find_probable_ORFs(seq, min_len_aa, strand_specific, genetic_code):
     '''Finds all open reading frames above minimum length threshold'''
-    seq_ORF_list = []
-    for i in range(3):
-        strand_ORF_list
-        seq_aa = seq[i:].translate(table=genetic_code, to_stop=False)
-        
-    if strand_specific:
-        return None
     
-    for i in range(3):
-        seq_aa = seq[i:].reverse_complement().translate(table=genetic_code, to_stop=False)
-        
-    return None
-
-def translate_three_frames(translation_table, seq, strand, is_rna=False):
-    dna2prot = Translator(translation_table, is_rna)
     pass
+    
+def find_complete_ORFs(seq, min_len_aa, strand_specific, genetic_code):
+    '''Finds all open reading frames above minimum length threshold'''
+    
+    # initialize translator
+    translator = Translator(table=genetic_code)
+    all_orf_list = []
+    
+    # find orfs in forward frames
+    for i in range(3):
+        sequence, orfs = translator.find_orfs(seq[i:])
+        if len(sequence) < min_len_aa:
+            continue
+        all_orf_list = (f'+{i+1}', sequence, orfs)
+            
+        
+    # do reverse strand if not strand-specific
+    if not strand_specific:
+        for i in range(3):
+            sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:])
+            if len(sequence) < min_len_aa:
+                continue
+            all_orf_list = (f'-{i+1}', sequence, orfs)
+    
+    return all_orf_list
     
 def main():
     # supress annoying warnings
@@ -140,7 +151,7 @@ def main():
     min_len_aa = args.minimum_length
     strand_specific = args.strand_specific
     complete_orfs_only = args.complete_orfs_only
-    translation_table = args.genetic_code
+    genetic_code = args.genetic_code
     is_rna = args.is_rna
     
     annotation_file = args.annotation_file

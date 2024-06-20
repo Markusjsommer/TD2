@@ -2,8 +2,8 @@
 # TODO
 [x] implement Translator class
     [] ensure translator is faster than BioSeq 
-[] flesh out skeleton logic
-[] implement orf finder (without orfanage)
+[x] flesh out skeleton logic
+[x] implement orf finder (without orfanage)
     [] create test dataset with CHESS dataset
     [] translate in 6 frames and store all orfs above threshold
     [] multithread ? 
@@ -38,6 +38,7 @@
 - orf finder
     - is it worth it to encode the dna sequence into 2 bit to make it marginally faster? -> benchmark
     - we are assuming orfs are non-overlapping, right? the current logic of the finder is maximized for efficiency using this assumption
+    - what does the -c option mean? complete orfs are default?
 
 
 # Links
