@@ -19,7 +19,10 @@
     - extract long open reading frames
     - identify orfs with homology to known proteins (optional)
     - predict likely coding regions based on homology
-    - 
+
+- replicating output
+    - what is th difference in output for prokaryote vs eukaryote
+    
 
 
 # Questions

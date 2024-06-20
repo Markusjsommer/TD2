@@ -131,7 +131,6 @@ def find_complete_ORFs(seq, min_len_aa, strand_specific, genetic_code):
             continue
         all_orf_list = (f'+{i+1}', sequence, orfs)
             
-        
     # do reverse strand if not strand-specific
     if not strand_specific:
         for i in range(3):

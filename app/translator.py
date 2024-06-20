@@ -52,7 +52,7 @@ class Translator:
             translations.append((f'{strand}{frame+1}', translated_sequence, initiator_positions, end_positions))
         return translations
     
-    def find_orfs(self, sequence):
+    def find_orfs(self, sequence, five_prime_partials=False, three_prime_partials=False):
         '''
         Find all open reading frames in the given sequence
         Parameters: sequence (str): DNA/RNA sequence to analyze
@@ -63,6 +63,11 @@ class Translator:
         cur_pos = -1
         start_index = 0
         end_index = 0
+        
+        if five_prime_partials:
+            end_positions = end_positions + [len(protein_sequence)]
+        if three_prime_partials:
+            start_positions = [0] + start_positions
                
         while start_index < len(start_positions) and end_index < len(end_positions):
             if start_positions[start_index] <= cur_pos:
