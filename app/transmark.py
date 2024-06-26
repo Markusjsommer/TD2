@@ -40,6 +40,7 @@ def get_args():
     parser.add_argument("-M", dest="use_mmseqs2", action='store_true', required=False, help="use mmseqs2 tool, default=False", default=False) # TODO: find better way to describe utility of mmseqs2
     
     parser.add_argument("-v", "--verbose", action='store_true', help="set -v for verbose output with progress bars, default=False", default=False)
+    parser.add_argument("--m-start", dest="m_start", action='store_true', required=False, help="use only ATG as initiator codon, default=False", default=False)
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
     return args
@@ -117,11 +118,9 @@ def find_probable_ORFs(seq, min_len_aa, strand_specific, genetic_code):
     
     pass
     
-def find_complete_ORFs(seq, min_len_aa, strand_specific, genetic_code):
+def find_complete_ORFs(seq, translator, min_len_aa, strand_specific):
     '''Finds all open reading frames above minimum length threshold'''
     
-    # initialize translator
-    translator = Translator(table=genetic_code)
     all_orf_list = []
     
     # find orfs in forward frames
@@ -152,6 +151,7 @@ def main():
     complete_orfs_only = args.complete_orfs_only
     genetic_code = args.genetic_code
     is_rna = args.is_rna
+    m_start = args.m_start
     
     annotation_file = args.annotation_file
     if annotation_file:
@@ -179,9 +179,12 @@ def main():
     # find all possible ORFs
     print(f"Step 1: Finding all ORFs with protein length >= {min_len_aa}", flush=True)
     start_time = time.time()
-    all_ORF_list = []
+    
+    # create translator object
+    translator = Translator(table=genetic_code, rna=is_rna, m_start=m_start)
+        
     for seq in seq_list:
-        seq_ORF_list = find_complete_ORFs(seq, min_len_aa, strand_specific, complete_orfs_only, genetic_code)
+        seq_ORF_list = find_complete_ORFs(seq, translator, min_len_aa, strand_specific)
     
     print(f"Done. {time.time() - start_time:.2f} seconds", flush=True)
 
