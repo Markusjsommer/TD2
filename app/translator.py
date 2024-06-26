@@ -1,7 +1,7 @@
 import json
 
 class Translator:
-    def __init__(self, table=1, rna=False, three_letter=False):
+    def __init__(self, table=1, rna=False, three_letter=False, m_start=False):
         if table not in legal_tables():
             raise ValueError(f"Table {table} is not a legal table")
         if table in stopless_tables():
@@ -10,6 +10,8 @@ class Translator:
         self.table, self.initiators = load_translation_table(table)
         self.rna = rna
         self.three_letter = three_letter
+        if m_start is True: # sets M as the sole initiator
+            self.initiators = ['ATG']
     
     def translate(self, sequence):
         '''

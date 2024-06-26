@@ -129,15 +129,15 @@ def find_complete_ORFs(seq, min_len_aa, strand_specific, genetic_code):
         sequence, orfs = translator.find_orfs(seq[i:])
         if len(sequence) < min_len_aa:
             continue
-        all_orf_list = (f'+{i+1}', sequence, orfs)
+        all_orf_list.append((f'+{i+1}', sequence, orfs))
             
-    # do reverse strand if not strand-specific
+    # do reverse strand if not strand-specific 
     if not strand_specific:
         for i in range(3):
             sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:])
             if len(sequence) < min_len_aa:
                 continue
-            all_orf_list = (f'-{i+1}', sequence, orfs)
+            all_orf_list.append((f'-{i+1}', sequence, orfs))
     
     return all_orf_list
     
@@ -181,7 +181,7 @@ def main():
     start_time = time.time()
     all_ORF_list = []
     for seq in seq_list:
-        seq_ORF_list = find_all_ORFs(seq, min_len_aa, strand_specific, complete_orfs_only, genetic_code)
+        seq_ORF_list = find_complete_ORFs(seq, min_len_aa, strand_specific, complete_orfs_only, genetic_code)
     
     print(f"Done. {time.time() - start_time:.2f} seconds", flush=True)
 
