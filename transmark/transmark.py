@@ -38,6 +38,7 @@ def get_args():
     parser.add_argument("-M", dest="use_mmseqs2", action='store_true', required=False, help="use mmseqs2 tool, default=False", default=False) # TODO: find better way to describe utility of mmseqs2
     
     parser.add_argument("-v", "--verbose", action='store_true', help="set -v for verbose output with progress bars, default=False", default=False)
+    # TODO refactor m-start to alt-start and reverse logic, also test/copy default behavior of transdecoder with regard to alternate starts (alternate starts technically result in m in the protein)
     parser.add_argument("--m-start", dest="m_start", action='store_true', required=False, help="use only ATG as initiator codon, default=False", default=False)
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
@@ -151,6 +152,9 @@ def main():
     is_rna = args.is_rna
     m_start = args.m_start
     
+    # use absolute path of output
+    output_dir = os.path.abspath(args.output_dir)
+    
     annotation_file = args.annotation_file
     if annotation_file:
         use_orfanage = True
@@ -158,13 +162,11 @@ def main():
         use_orfanage = False
     use_mmseqs2 = args.use_mmseqs2
     
-    
-    verbose = args.verbose # work on this at the end
+    verbose = args.verbose # TODO work on this at the end
 
     print("Python", sys.version, "\n")
     
-    # check args
-    # TODO
+    # TODO check args
     
     # OUTLINE -> transcript -> orf -> protein_score -> high_score_orfs
     # orfanage for finding orfs
@@ -183,6 +185,32 @@ def main():
         
     for seq in seq_list:
         seq_ORF_list = find_complete_ORFs(seq, translator, min_len_aa, strand_specific)
+        
+    # create working directory
+    working_base = "transcripts.transdecoder_dir"
+    working_dir = os.path.join(output_dir, working_base)
+    print("Writing to", working_dir, flush=True)
+    if not os.path.exists(working_dir):
+        os.makedirs(working_dir)
+    
+    # write output files
+    p_pep = os.path.join(working_dir, "longest_orfs.pep")
+    p_gff3 = os.path.join(working_dir, "longest_orfs.gff3")
+    p_cds = os.path.join(working_dir, "longest_orfs.cds")
+    p_cds_top500 = os.path.join(working_dir, "longest_orfs.cds.top_500_longest")
+    
+    with open(p_pep, "wt") as f:
+        # TODO
+        pass
+    with open(p_gff3, "wt") as f:
+        # TODO
+        pass
+    with open(p_cds, "wt") as f:
+        # TODO
+        pass
+    with open(p_cds_top500, "wt") as f:
+        # TODO
+        pass
     
     print(f"Done. {time.time() - start_time:.2f} seconds", flush=True)
 
