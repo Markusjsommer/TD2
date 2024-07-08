@@ -1,19 +1,19 @@
 import os
 import sys
 import gzip
-import copy
+# import copy
 import time
-import pandas
-import pickle
+# import pandas
+# import pickle
 import argparse
 import warnings
-import numpy as np
-from tqdm.auto import tqdm
+# import numpy as np
+# from tqdm.auto import tqdm
 
-from multiprocessing import Pool
+# from multiprocessing import Pool
 
-from Bio import SeqIO
-from Bio.Seq import Seq
+# from Bio import SeqIO
+# from Bio.Seq import Seq
 from transmark.translator import Translator
 
 ### INIT GLOBALS ###
@@ -62,7 +62,7 @@ def load_fasta(filepath):
     seq_list = []
     for name, seq, qual in readfq(f):
         description_list.append(name)
-        seq_list.append(seq.upper())
+        seq_list.append(seq)
     
     # convert all str to biopython seqs
     # TODO measure performance hit of this
@@ -163,6 +163,7 @@ def main():
     
     # TODO: check args
     
+    
     # load FASTA
     description_list, seq_list = load_fasta(args.transcripts)
     
@@ -171,7 +172,10 @@ def main():
     start_time = time.time()
     
     # create translator object
-    translator = Translator(table=genetic_code, m_start=m_start)
+    if complete_orfs_only:
+        translator = Translator(table=genetic_code, m_start=m_start)
+    else:
+        translator = Translator(table=genetic_code, m_start=m_start, three_prime_partials=True, five_prime_partials=True)
         
     for seq in seq_list:
         seq_ORF_list = find_ORFs(seq, translator, min_len_aa, strand_specific)
@@ -203,6 +207,8 @@ def main():
         pass
     
     print(f"Done. {time.time() - start_time:.2f} seconds", flush=True)
+    
+    # TODO: Step 2 if annotation file provided -> use ORFanage to find ORFs
 
 if __name__ == "__main__":
     main()

@@ -2,15 +2,18 @@ import json
 import pkg_resources
 
 class Translator:
-    def __init__(self, table=1, three_letter=False, m_start=False):
+    def __init__(self, table=1, rna=False, three_letter=False, m_start=False, five_prime_partials=False, three_prime_partials=False):
         if table not in legal_tables():
             raise ValueError(f"Table {table} is not a legal table")
         if table in stopless_tables():
             print(f"[WARNING] Table {table} does not contain stop codons")
         self.table_num = table
         self.table, self.initiators = load_translation_table(table)
+        self.rna = rna
         self.three_letter = three_letter
-        if m_start: # sets M as the sole initiator
+        self.five_prime_partials = five_prime_partials
+        self.three_prime_partials = three_prime_partials
+        if m_start is True: # sets M as the sole initiator
             self.initiators = ['ATG']
     
     def translate(self, sequence):
@@ -54,7 +57,7 @@ class Translator:
             translations.append((f'{strand}{frame+1}', translated_sequence, initiator_positions, end_positions))
         return translations
     
-    def find_orfs(self, sequence, five_prime_partials=False, three_prime_partials=False):
+    def find_orfs(self, sequence):
         '''
         Find all open reading frames in the given sequence
         Parameters: sequence (str): DNA/RNA sequence to analyze
@@ -66,9 +69,9 @@ class Translator:
         start_index = 0
         end_index = 0
         
-        if five_prime_partials:
+        if self.five_prime_partials:
             end_positions = end_positions + [len(protein_sequence)]
-        if three_prime_partials:
+        if self.three_prime_partials:
             start_positions = [0] + start_positions
                
         while start_index < len(start_positions) and end_index < len(end_positions):
@@ -130,6 +133,7 @@ def main():
     parser = argparse.ArgumentParser(description='DNA to Protein Translator')
     parser.add_argument('sequence', type=str, help='DNA sequence to translate')
     parser.add_argument('-t', '--table', type=int, default=1, help='Translation table to use')
+    parser.add_argument('-r', '--rna', action='store_true', help='Use RNA instead of DNA')
     parser.add_argument('-3', '--three-letter', action='store_true', help='Use three-letter amino acid codes')
     args = parser.parse_args()
 
