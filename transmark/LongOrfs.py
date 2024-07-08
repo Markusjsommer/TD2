@@ -139,6 +139,10 @@ def find_ORFs(seq, translator, min_len_aa, strand_specific):
 def main():
     # supress annoying warnings
     warnings.filterwarnings('ignore')
+    print("Python", sys.version, "\n")
+    
+    print(f"Initializing args...", flush=True)
+    start_time = time.time()
     
     # parse command line arguments
     args = get_args()
@@ -159,17 +163,36 @@ def main():
     
     verbose = args.verbose # TODO: work on this at the end
 
-    print("Python", sys.version, "\n")
+    
     
     # TODO: check args
     
+    # create working directory
+    working_base = "transcripts.transmark_dir"
+    working_dir = os.path.join(output_dir, working_base)
+    print("Writing to", working_dir, flush=True)
+    if not os.path.exists(working_dir):
+        os.makedirs(working_dir)
+    
+    # define output filepaths
+    p_pep = os.path.join(working_dir, "longest_orfs.pep")
+    p_gff3 = os.path.join(working_dir, "longest_orfs.gff3")
+    p_cds = os.path.join(working_dir, "longest_orfs.cds")
+    p_cds_top500 = os.path.join(working_dir, "longest_orfs.cds.top_500_longest")
+    
+    f_pep = open(p_pep, "wt")
+    f_gff3 = open(p_gff3, "wt")
+    f_cds = open(p_cds, "wt")
+    f_cds_top500 = open(p_cds_top500, "wt")
+    
+    print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
+    
+    
+    print(f"Step 1: Finding all ORFs with protein length >= {min_len_aa}", flush=True)
+    start_time = time.time()
     
     # load FASTA
     description_list, seq_list = load_fasta(args.transcripts)
-    
-    # find all possible ORFs
-    print(f"Step 1: Finding all ORFs with protein length >= {min_len_aa}", flush=True)
-    start_time = time.time()
     
     # create translator object
     if complete_orfs_only:
@@ -179,19 +202,6 @@ def main():
         
     for seq in seq_list:
         seq_ORF_list = find_ORFs(seq, translator, min_len_aa, strand_specific)
-        
-    # create working directory
-    working_base = "transcripts.transmark_dir"
-    working_dir = os.path.join(output_dir, working_base)
-    print("Writing to", working_dir, flush=True)
-    if not os.path.exists(working_dir):
-        os.makedirs(working_dir)
-    
-    # write output files
-    p_pep = os.path.join(working_dir, "longest_orfs.pep")
-    p_gff3 = os.path.join(working_dir, "longest_orfs.gff3")
-    p_cds = os.path.join(working_dir, "longest_orfs.cds")
-    p_cds_top500 = os.path.join(working_dir, "longest_orfs.cds.top_500_longest")
     
     with open(p_pep, "wt") as f:
         # TODO
@@ -199,14 +209,12 @@ def main():
     with open(p_gff3, "wt") as f:
         # TODO
         pass
-    with open(p_cds, "wt") as f:
-        # TODO
-        pass
+        
     with open(p_cds_top500, "wt") as f:
         # TODO
         pass
     
-    print(f"Done. {time.time() - start_time:.2f} seconds", flush=True)
+    print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
     
     # TODO: Step 2 if annotation file provided -> use ORFanage to find ORFs
 

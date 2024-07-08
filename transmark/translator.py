@@ -57,9 +57,9 @@ class Translator:
             translations.append((f'{strand}{frame+1}', translated_sequence, initiator_positions, end_positions))
         return translations
     
-    def find_orfs(self, sequence):
+    def find_complete_orfs(self, sequence):
         '''
-        Find all open reading frames in the given sequence
+        Find all open reading frames in the given sequence, considering 5' partials (missing start codon) and 3' partials (missing stop codon)
         Parameters: sequence (str): DNA/RNA sequence to analyze
         Returns: str, List[Tuple[int, int]]: Translated protein sequence and list of ORFs (start, end) positions
         '''
@@ -69,23 +69,18 @@ class Translator:
         start_index = 0
         end_index = 0
         
-        if self.five_prime_partials:
-            end_positions = end_positions + [len(protein_sequence)]
-        if self.three_prime_partials:
-            start_positions = [0] + start_positions
-               
         while start_index < len(start_positions) and end_index < len(end_positions):
             if start_positions[start_index] <= cur_pos:
                 start_index += 1
             elif end_positions[end_index] <= start_positions[start_index]:
                 end_index += 1
             else:
-                orfs.append((start_positions[start_index], end_positions[end_index]))
+                orfs.append((start_positions[start_index], end_positions[end_index], 'complete'))
                 cur_pos = end_positions[end_index]
                 start_index += 1
                 end_index += 1
-            
-        return protein_sequence, orfs
+                
+            return protein_sequence, orfs
 
 
 def standardize_sequence(sequence):
