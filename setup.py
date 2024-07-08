@@ -34,7 +34,8 @@ setup(
     python_requires=">=3.8",
     entry_points={
         'console_scripts': [
-            'transmark = transmark.transmark:main',
+            'transmark.LongOrfs = transmark.LongOrfs:main',
+            'transmark.Predict = transmark.Predict:main',
         ],
     },
 

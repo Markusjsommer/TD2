@@ -30,12 +30,13 @@ def get_args():
     parser.add_argument("-S", dest="strand_specific", action='store_true', required=False, help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
     parser.add_argument("-G", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1", default=1)
     parser.add_argument("-c", dest="complete_orfs_only", action='store_true', required=False, help="set -c to yield only complete ORFs (peps start with Met (M), end with stop (*)), default=False", default=False)
-    parser.add_argument("-R", dest="is_rna", action='store_true', required=False, help="set -R if the transcripts are RNA, default=False", default=False)
     
     parser.add_argument("-@", "--threads", dest="threads", type=int, help="number of threads to use, default=1", default=1)
-    # if annotation file provided -> use ORFanage to find ORFs
+    
+    # TODO gene to transcript mapping file
+    
+    # TODO if annotation file provided -> use ORFanage to find ORFs
     parser.add_argument("-A", dest="annotation_file", type=str, required=False, help="path to annotation file transcripts.gff, default=None", default=None)
-    parser.add_argument("-M", dest="use_mmseqs2", action='store_true', required=False, help="use mmseqs2 tool, default=False", default=False) # TODO: find better way to describe utility of mmseqs2
     
     parser.add_argument("-v", "--verbose", action='store_true', help="set -v for verbose output with progress bars, default=False", default=False)
     # TODO refactor m-start to alt-start and reverse logic, also test/copy default behavior of transdecoder with regard to alternate starts (alternate starts technically result in m in the protein)
@@ -60,8 +61,6 @@ def load_fasta(filepath):
     
     # convert all str to biopython seqs
     # TODO measure performance hit of this
-    # TODO consider scikit-bio for translation
-    # TODO alternatively, just implement a dict translation on str (dealing with all possible translation tables will be annoying)
     seq_list = [Seq(s) for s in seq_list]
     
     f.close()
@@ -149,7 +148,6 @@ def main():
     strand_specific = args.strand_specific
     complete_orfs_only = args.complete_orfs_only
     genetic_code = args.genetic_code
-    is_rna = args.is_rna
     m_start = args.m_start
     
     # use absolute path of output
@@ -160,18 +158,12 @@ def main():
         use_orfanage = True
     else:
         use_orfanage = False
-    use_mmseqs2 = args.use_mmseqs2
     
     verbose = args.verbose # TODO work on this at the end
 
     print("Python", sys.version, "\n")
     
     # TODO check args
-    
-    # OUTLINE -> transcript -> orf -> protein_score -> high_score_orfs
-    # orfanage for finding orfs
-    # psauron for scoring orfs
-    # mmseqs2 for clustering orfs
     
     # load FASTA
     description_list, seq_list = load_fasta(args.transcripts)
@@ -181,13 +173,13 @@ def main():
     start_time = time.time()
     
     # create translator object
-    translator = Translator(table=genetic_code, rna=is_rna, m_start=m_start)
+    translator = Translator(table=genetic_code, m_start=m_start)
         
     for seq in seq_list:
         seq_ORF_list = find_complete_ORFs(seq, translator, min_len_aa, strand_specific)
         
     # create working directory
-    working_base = "transcripts.transdecoder_dir"
+    working_base = "transcripts.transmark_dir"
     working_dir = os.path.join(output_dir, working_base)
     print("Writing to", working_dir, flush=True)
     if not os.path.exists(working_dir):

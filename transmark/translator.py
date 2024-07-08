@@ -2,14 +2,13 @@ import json
 import pkg_resources
 
 class Translator:
-    def __init__(self, table=1, rna=False, three_letter=False, m_start=False):
+    def __init__(self, table=1, three_letter=False, m_start=False):
         if table not in legal_tables():
             raise ValueError(f"Table {table} is not a legal table")
         if table in stopless_tables():
             print(f"[WARNING] Table {table} does not contain stop codons")
         self.table_num = table
         self.table, self.initiators = load_translation_table(table)
-        self.rna = rna
         self.three_letter = three_letter
         if m_start: # sets M as the sole initiator
             self.initiators = ['ATG']
@@ -20,7 +19,7 @@ class Translator:
         Parameters: sequence (str): DNA/RNA sequence to translate
         Returns: Tuple[str, List[int], List[int]]: Translated protein sequence, (sorted) initiator positions, and (sorted) stop positions
         '''
-        dna_sequence = standardize_sequence(sequence, self.rna)
+        dna_sequence = standardize_sequence(sequence)
         if set(dna_sequence) - legal_letters(): 
             raise ValueError(f"Sequence {dna_sequence} contains illegal letters")
 
@@ -86,12 +85,11 @@ class Translator:
         return protein_sequence, orfs
 
 
-def standardize_sequence(sequence, rna=False):
+def standardize_sequence(sequence):
     '''Ensures that given sequence is valid DNA, upper case, and multiple of 3'''
     dna = sequence.upper().strip()
     dna = dna[:-(len(dna) % 3)] # truncates to last full codon
-    if rna:
-        dna = dna.replace('U', 'T')        
+    dna = dna.replace('U', 'T') # replaces U with T in case of RNA
     return dna
 
 def load_translation_table(table_num=1):
@@ -132,12 +130,11 @@ def main():
     parser = argparse.ArgumentParser(description='DNA to Protein Translator')
     parser.add_argument('sequence', type=str, help='DNA sequence to translate')
     parser.add_argument('-t', '--table', type=int, default=1, help='Translation table to use')
-    parser.add_argument('-r', '--rna', action='store_true', help='Use RNA instead of DNA')
     parser.add_argument('-3', '--three-letter', action='store_true', help='Use three-letter amino acid codes')
     args = parser.parse_args()
 
     # Create an instance of the Translator class
-    dna2prot = Translator(args.table, args.rna, args.three_letter)
+    dna2prot = Translator(args.table, args.three_letter)
 
     # Call the translate method
     translation, starts = dna2prot.translate(args.sequence)
