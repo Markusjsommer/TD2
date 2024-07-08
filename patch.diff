@@ -1,0 +1,6420 @@
+diff --git a/README.md b/README.md
+index 2fe89eb..efa5334 100644
+--- a/README.md
++++ b/README.md
+@@ -1,41 +1,2 @@
+ # TD2
+ A tool to find protein coding ORFs
+-
+-NOTE: this readme is heavily based on the TransDecoder wiki: https://github.com/TransDecoder/TransDecoder/wiki
+-
+-Including homology searches as ORF retention criteria
+-We suggest using MMseqs2 for increased speed and sensitivity in protein search.
+-An example command would be like so: 
+-
+-mmseqs databases UniProtKB/Swiss-Prot swissprot tmp
+-mmseqs easy-search transdecoder_dir/longest_orfs.pep swissprot alnRes.m8 tmp -s 7.0
+-
+-The sensitivity of this search can be adjusted with -s. We suggest a setting of -s 7.0 for a very sensitive search.
+-
+-MMseqs2 can be used to search against a wide variety of databases:
+-Usage: mmseqs databases <name> <o:sequenceDB> <tmpDir> [options]
+-
+-  Name                	Type      	Taxonomy	Url
+-- UniRef100           	Aminoacid 	     yes	https://www.uniprot.org/help/uniref
+-- UniRef90            	Aminoacid 	     yes	https://www.uniprot.org/help/uniref
+-- UniRef50            	Aminoacid 	     yes	https://www.uniprot.org/help/uniref
+-- UniProtKB           	Aminoacid 	     yes	https://www.uniprot.org/help/uniprotkb
+-- UniProtKB/TrEMBL    	Aminoacid 	     yes	https://www.uniprot.org/help/uniprotkb
+-- UniProtKB/Swiss-Prot	Aminoacid 	     yes	https://uniprot.org
+-- NR                  	Aminoacid 	     yes	https://ftp.ncbi.nlm.nih.gov/blast/db/FASTA
+-- NT                  	Nucleotide	       -	https://ftp.ncbi.nlm.nih.gov/blast/db/FASTA
+-- GTDB                  Aminoacid	     yes	https://gtdb.ecogenomic.org
+-- PDB                 	Aminoacid 	       -	https://www.rcsb.org
+-- PDB70               	Profile   	       -	https://github.com/soedinglab/hh-suite
+-- Pfam-A.full         	Profile   	       -	https://pfam.xfam.org
+-- Pfam-A.seed         	Profile   	       -	https://pfam.xfam.org
+-- Pfam-B              	Profile   	       -	https://xfam.wordpress.com/2020/06/30/a-new-pfam-b-is-released
+-- CDD                   Profile                -        https://www.ncbi.nlm.nih.gov/Structure/cdd/cdd.shtml
+-- eggNOG              	Profile   	       -	http://eggnog5.embl.de
+-- VOGDB                 Profile                -        https://vogdb.org
+-- dbCAN2              	Profile   	       -	http://bcb.unl.edu/dbCAN2
+-- SILVA                 Nucleotide           yes        https://www.arb-silva.de
+-- Resfinder           	Nucleotide	       -	https://cge.cbs.dtu.dk/services/ResFinder
+-- Kalamari            	Nucleotide	     yes	https://github.com/lskatz/Kalamari
+-
+-Additionally, MMseqs2 can be run with on multiple servers using MPI. Detailed notes for MMseqs2 usage can be found here: https://github.com/soedinglab/mmseqs2/wiki
+\ No newline at end of file
+diff --git a/api/requirements.txt b/api/requirements.txt
+index 1a3853c..a609fbf 100644
+--- a/api/requirements.txt
++++ b/api/requirements.txt
+@@ -12,4 +12,3 @@ pytest>=7.0
+ twine>=4.0.2
+ pytest-cov>=4.0
+ setuptools
+-wheel
+\ No newline at end of file
+diff --git a/app/transmark.py b/app/LongOrfs.py
+similarity index 100%
+rename from app/transmark.py
+rename to app/LongOrfs.py
+diff --git a/setup.py b/setup.py
+index d267e5d..5629690 100644
+--- a/setup.py
++++ b/setup.py
+@@ -26,46 +26,23 @@ setup(
+                       "scipy>=1.10.1",
+                       "biopython>=1.83",
+                       "numpy>=1.24.4",
+-                      "pandas>=2.0.3",
+-                      "wheel"],
++                      "pandas>=2.0.3"],
+     extras_require={
+         "dev": ["pytest>=7.0", "twine>=4.0.2", "pytest-cov>=4.0", "wheel"],
+     },
+     python_requires=">=3.8",
+     entry_points={
+         'console_scripts': [
+-            'transmark.LongOrfs = transmark.LongOrfs:main',
+-            'transmark.Predict = transmark.Predict:main',
++            'transmark = app.transmark:main',
+         ],
+     },
+-
+-    include_package_data=True,
+-    package_data={'': ['tables/table_1.json',
+-                       'tables/table_2.json',
+-                       'tables/table_3.json',
+-                       'tables/table_4.json',
+-                       'tables/table_5.json',
+-                       'tables/table_6.json',
+-                       'tables/table_9.json',
+-                       'tables/table_10.json',
+-                       'tables/table_11.json',
+-                       'tables/table_12.json',
+-                       'tables/table_13.json',
+-                       'tables/table_14.json',
+-                       'tables/table_15.json',
+-                       'tables/table_16.json',
+-                       'tables/table_21.json',
+-                       'tables/table_22.json',
+-                       'tables/table_23.json',
+-                       'tables/table_24.json',
+-                       'tables/table_25.json',
+-                       'tables/table_26.json',
+-                       'tables/table_27.json',
+-                       'tables/table_28.json',
+-                       'tables/table_29.json',
+-                       'tables/table_30.json',
+-                       'tables/table_31.json',
+-                       'tables/table_33.json']},
++    #entry_points={
++    #        'console_scripts': [
++    #        'transmark = app.transmark:main',
++    #    ],
++    #},
++    #include_package_data=True,
++    #package_data={'': ['/data/model_state_dict.pt']},
+     
+ )
+ 
+diff --git a/tests/test_reverse_complement.py b/tests/test_reverse_complement.py
+index 7981ad4..31ca7f7 100644
+--- a/tests/test_reverse_complement.py
++++ b/tests/test_reverse_complement.py
+@@ -1,4 +1,4 @@
+-from app.transmark import reverse_complement
++from app.LongOrfs import reverse_complement
+ 
+ def test_reverse_complement_default():
+     revcomp = reverse_complement("GATACA")
+diff --git a/transmark/LongOrfs.py b/transmark/LongOrfs.py
+deleted file mode 100644
+index 59ff099..0000000
+--- a/transmark/LongOrfs.py
++++ /dev/null
+@@ -1,210 +0,0 @@
+-import os
+-import sys
+-import gzip
+-import copy
+-import time
+-import pandas
+-import pickle
+-import argparse
+-import warnings
+-import numpy as np
+-from tqdm.auto import tqdm
+-
+-from multiprocessing import Pool
+-
+-from Bio import SeqIO
+-from Bio.Seq import Seq
+-from transmark.translator import Translator
+-
+-
+-def get_args():
+-    parser = argparse.ArgumentParser()
+-    
+-    # required
+-    required = parser.add_argument_group('required arguments')
+-    required.add_argument("-t", dest="transcripts",  type=str, required=True, help="REQUIRED path to transcripts.fasta")
+-    
+-    # optional
+-    parser.add_argument("-O", dest="output_dir", type=str, required=False, help="path to output results, default=./", default="./")
+-    parser.add_argument("-m", dest="minimum_length", type=int, required=False, help="minimum protein length, default=100", default=100)
+-    parser.add_argument("-S", dest="strand_specific", action='store_true', required=False, help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
+-    parser.add_argument("-G", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1", default=1)
+-    parser.add_argument("-c", dest="complete_orfs_only", action='store_true', required=False, help="set -c to yield only complete ORFs (peps start with Met (M), end with stop (*)), default=False", default=False)
+-    
+-    parser.add_argument("-@", "--threads", dest="threads", type=int, help="number of threads to use, default=1", default=1)
+-    
+-    # TODO gene to transcript mapping file
+-    
+-    # TODO if annotation file provided -> use ORFanage to find ORFs
+-    parser.add_argument("-A", dest="annotation_file", type=str, required=False, help="path to annotation file transcripts.gff, default=None", default=None)
+-    
+-    parser.add_argument("-v", "--verbose", action='store_true', help="set -v for verbose output with progress bars, default=False", default=False)
+-    # TODO refactor m-start to alt-start and reverse logic, also test/copy default behavior of transdecoder with regard to alternate starts (alternate starts technically result in m in the protein)
+-    parser.add_argument("--m-start", dest="m_start", action='store_true', required=False, help="use only ATG as initiator codon, default=False", default=False)
+-
+-    args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
+-    return args
+-    
+-def load_fasta(filepath):
+-    '''Loads a FASTA file and returns a list of descriptions and a list of sequences'''
+-    print("Loading transcripts at", filepath)
+-    if filepath[-3:].lower() == ".gz":
+-        f = gzip.open(filepath, "rt")
+-    else:
+-        f = open(filepath, "rt")
+-    
+-    description_list = []
+-    seq_list = []
+-    for name, seq, qual in readfq(f):
+-        description_list.append(name)
+-        seq_list.append(seq.upper())
+-    
+-    # convert all str to biopython seqs
+-    # TODO measure performance hit of this
+-    seq_list = [Seq(s) for s in seq_list]
+-    
+-    f.close()
+-    print("Loaded...\n")
+-    return description_list, seq_list
+-    
+-def readfq(fp): 
+-    """this is a generator function copied from Heng Li's readfq project https://github.com/lh3/readfq/blob/master/readfq.py"""
+-    last = None # this is a buffer keeping the last unprocessed line
+-    while True: # mimic closure; is it a bad idea?
+-        if not last: # the first record or a record following a fastq
+-            for l in fp: # search for the start of the next record
+-                if l[0] in '>@': # fasta/q header line
+-                    last = l[:-1] # save this line
+-                    break
+-        if not last: break
+-        name, seqs, last = last[1:].partition(" ")[0], [], None
+-        for l in fp: # read the sequence
+-            if l[0] in '@+>':
+-                last = l[:-1]
+-                break
+-            seqs.append(l[:-1])
+-        if not last or last[0] != '+': # this is a fasta record
+-            yield name, ''.join(seqs), None # yield a fasta record
+-            if not last: break
+-        else: # this is a fastq record
+-            seq, leng, seqs = ''.join(seqs), 0, []
+-            for l in fp: # read the quality
+-                seqs.append(l[:-1])
+-                leng += len(l) - 1
+-                if leng >= len(seq): # have read enough quality
+-                    last = None
+-                    yield name, seq, ''.join(seqs); # yield a fastq record
+-                    break
+-            if last: # reach EOF before reading enough quality
+-                yield name, seq, None # yield a fasta record instead
+-                break
+-    
+-def reverse_complement(seq):
+-    '''Reverse complements DNA seq, returns N for all non-ATGC chars'''
+-    complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}
+-    seq_reverse_complement = ''.join([complement.get(base, 'N') for base in seq[::-1]])
+-    return seq_reverse_complement
+-
+-def complement(seq):
+-    '''Complements DNA seq, returns N for all non-ATGC chars'''
+-    complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}
+-    seq_complement = ''.join([complement.get(base, 'N') for base in seq])
+-    return seq_complement
+-    
+-def find_probable_ORFs(seq, min_len_aa, strand_specific, genetic_code):
+-    '''Finds all open reading frames above minimum length threshold'''
+-    
+-    pass
+-    
+-def find_complete_ORFs(seq, translator, min_len_aa, strand_specific):
+-    '''Finds all open reading frames above minimum length threshold'''
+-    
+-    all_orf_list = []
+-    
+-    # find orfs in forward frames
+-    for i in range(3):
+-        sequence, orfs = translator.find_orfs(seq[i:])
+-        if len(sequence) < min_len_aa:
+-            continue
+-        all_orf_list.append((f'+{i+1}', sequence, orfs))
+-            
+-    # do reverse strand if not strand-specific 
+-    if not strand_specific:
+-        for i in range(3):
+-            sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:])
+-            if len(sequence) < min_len_aa:
+-                continue
+-            all_orf_list.append((f'-{i+1}', sequence, orfs))
+-    
+-    return all_orf_list
+-    
+-def main():
+-    # supress annoying warnings
+-    warnings.filterwarnings('ignore')
+-    
+-    # parse command line arguments
+-    args = get_args()
+-    min_len_aa = args.minimum_length
+-    strand_specific = args.strand_specific
+-    complete_orfs_only = args.complete_orfs_only
+-    genetic_code = args.genetic_code
+-    m_start = args.m_start
+-    
+-    # use absolute path of output
+-    output_dir = os.path.abspath(args.output_dir)
+-    
+-    annotation_file = args.annotation_file
+-    if annotation_file:
+-        use_orfanage = True
+-    else:
+-        use_orfanage = False
+-    
+-    verbose = args.verbose # TODO work on this at the end
+-
+-    print("Python", sys.version, "\n")
+-    
+-    # TODO check args
+-    
+-    # load FASTA
+-    description_list, seq_list = load_fasta(args.transcripts)
+-    
+-    # find all possible ORFs
+-    print(f"Step 1: Finding all ORFs with protein length >= {min_len_aa}", flush=True)
+-    start_time = time.time()
+-    
+-    # create translator object
+-    translator = Translator(table=genetic_code, m_start=m_start)
+-        
+-    for seq in seq_list:
+-        seq_ORF_list = find_complete_ORFs(seq, translator, min_len_aa, strand_specific)
+-        
+-    # create working directory
+-    working_base = "transcripts.transmark_dir"
+-    working_dir = os.path.join(output_dir, working_base)
+-    print("Writing to", working_dir, flush=True)
+-    if not os.path.exists(working_dir):
+-        os.makedirs(working_dir)
+-    
+-    # write output files
+-    p_pep = os.path.join(working_dir, "longest_orfs.pep")
+-    p_gff3 = os.path.join(working_dir, "longest_orfs.gff3")
+-    p_cds = os.path.join(working_dir, "longest_orfs.cds")
+-    p_cds_top500 = os.path.join(working_dir, "longest_orfs.cds.top_500_longest")
+-    
+-    with open(p_pep, "wt") as f:
+-        # TODO
+-        pass
+-    with open(p_gff3, "wt") as f:
+-        # TODO
+-        pass
+-    with open(p_cds, "wt") as f:
+-        # TODO
+-        pass
+-    with open(p_cds_top500, "wt") as f:
+-        # TODO
+-        pass
+-    
+-    print(f"Done. {time.time() - start_time:.2f} seconds", flush=True)
+-
+-if __name__ == "__main__":
+-    main()
+\ No newline at end of file
+diff --git a/transmark/Predict.py b/transmark/Predict.py
+deleted file mode 100644
+index d797d2a..0000000
+--- a/transmark/Predict.py
++++ /dev/null
+@@ -1,95 +0,0 @@
+-import os
+-import sys
+-import gzip
+-import copy
+-import time
+-import pandas
+-import pickle
+-import argparse
+-import warnings
+-import numpy as np
+-from tqdm.auto import tqdm
+-
+-from multiprocessing import Pool
+-
+-from Bio import SeqIO
+-from Bio.Seq import Seq
+-
+-from transmark.translator import Translator
+-from transmark.LongOrfs import load_fasta
+-
+-
+-def get_args():
+-    parser = argparse.ArgumentParser()
+-    
+-    # required
+-    required = parser.add_argument_group('required arguments')
+-    required.add_argument("-t", dest="transcripts",  type=str, required=True, help="REQUIRED path to transcripts.fasta")
+-    
+-    # optional
+-    parser.add_argument("--retain_mmseqs_hits",  type=str, required=False, help="mmseqs output in default '.m8' format. Any ORF with a MMseqs2 match will be retained in the final output.")
+-    parser.add_argument("--retain_blastp_hits",  type=str, required=False, help="blastp output in '-outfmt 6' format. Any ORF with a blast match will be retained in the final output.")
+-    parser.add_argument("--retain_pfam_hits",  type=str, required=False, help="domain table output file from running hmmscan to search Pfam. Any ORF with a pfam domain hit will be retained in the final output.")
+-    
+-    # TODO mmseqs for domain search. Hayden says she has something better?
+-    
+-    parser.add_argument("--retain_long_orfs_length",  type=int, required=False, help="retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding (default: 1000000) so essentially turned off by default.)", default=1000000)
+-    parser.add_argument("--single_best_only",  type=str, required=False, help="Retain only the single best orf per transcript (prioritized by homology then orf length)")
+-    parser.add_argument("-O", dest="output_dir", type=str, required=False, help="same output directory from LongOrfs", default="./transcripts.transmark_dir")
+-    parser.add_argument("-G", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1", default=1)
+-
+-    # TODO start codon refinement with PWM? Is there anything better?
+-
+-    args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
+-    return args
+-    
+-def main():
+-    # supress annoying warnings
+-    warnings.filterwarnings('ignore')
+-    
+-    # parse command line arguments
+-    args = get_args()
+-    
+-    # use absolute path of output
+-    output_dir = os.path.abspath(args.output_dir)    
+-    
+-    # run psauron to score ORFs
+-    
+-
+-    # integrate homology search results
+-    
+-    
+-    # write intermediate output files to working directory
+-    p_scores = os.path.join(output_dir, "longest_orfs.cds.scores")
+-    with open(p_scores, "wt") as f:
+-    # TODO
+-        pass
+-    p_scores_selected = os.path.join(output_dir, "longest_orfs.cds.scores.selected")
+-    with open(p_scores, "wt") as f:
+-    # TODO
+-        pass
+-        
+-    p_scores_selected = os.path.join(output_dir, "longest_orfs.cds.scores.selected")
+-    with open(p_scores, "wt") as f:
+-    # TODO
+-        pass
+-    
+-    
+-    # write final outputs to current working directory 
+-    # TODO does TransDecoder really just write to CWD regardless of -O? test this behavior
+-    with open("transcripts.fasta.transdecoder.pep", "wt") as f:
+-    # TODO
+-        pass
+-    with open("transcripts.fasta.transdecoder.cds", "wt") as f:
+-    # TODO
+-        pass
+-    with open("transcripts.fasta.transdecoder.gff3", "wt") as f:
+-    # TODO
+-        pass
+-    with open("transcripts.fasta.transdecoder.bed", "wt") as f:
+-    # TODO
+-        pass
+-    
+-    
+-if __name__ == "__main__":
+-    main()
+\ No newline at end of file
+diff --git a/transmark/__init__.py b/transmark/__init__.py
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/transmark/get_tables.py b/transmark/get_tables.py
+deleted file mode 100644
+index f3f7274..0000000
+--- a/transmark/get_tables.py
++++ /dev/null
+@@ -1,218 +0,0 @@
+-import json
+-import os, sys
+-import argparse
+-import re
+-from itertools import product
+-
+-
+-def genetic_codes(input_file, output_dir, verbose=False, three_letter=False):
+-    """Parses genetic codes from NCBI table and stores each into a separate JSON object (Adapted from https://github.com/linsalrob/genetic_codes/blob/main/pygenetic_code/ncbi_table_to_json.py)"""
+-    # ensure the output directory exists
+-    os.makedirs(output_dir, exist_ok=True)
+-
+-    head = re.compile(r'transl_table=(\d+)')
+-    table = re.compile(r'\w\w\w\s+')
+-
+-    trans_table = None
+-    initiators = None
+-    codons = {}
+-    
+-    with open(input_file, 'r', encoding='utf-8') as f:
+-        for l in f: # skip comments
+-            if l.startswith('#'):
+-                continue
+-            l = l.strip()
+-            if not l: # skip empty lines
+-                continue
+-            m = head.search(l) # check if the line is a header
+-            if m:
+-                if codons:
+-                    # save the current table as a JSON file
+-                    save_table(output_dir, trans_table, {'initiators': sorted(list(initiators)), 'codons': codons})
+-
+-                # start a new translation table
+-                trans_table = int(m.groups()[0])
+-                initiators = set()
+-                codons = {}
+-            elif table.match(l):
+-                p = l.strip().split()
+-                i = 0
+-                while i < len(p):
+-                    codon = p[i]
+-                    i += 2 if three_letter else 1
+-                    if codon in codons:
+-                        if verbose:
+-                            print(
+-                                f"For {codon} in trans table {trans_table} we already had {codons[codon]} but now "
+-                                f"we found {p[i]}", file=sys.stderr)
+-                    codons[codon] = p[i]
+-                    i += 1 if three_letter else 2
+-                    if i < len(p) and p[i] == 'i':
+-                        initiators.add(codon)
+-                        i += 1
+-            else:
+-                print(f"ERROR: We don't know what {l} means?", file=sys.stderr)
+-
+-        # save the last table
+-        if codons:
+-            save_table(output_dir, trans_table, {'initiators': sorted(list(initiators)), 'codons': codons})
+-
+-def add_ambiguous_codons(data, verbose=False):
+-    """Update the translation table by adding possible ambiguous codons."""
+-    
+-    amb2std = ambiguous_to_standard()
+-
+-    # generate all possible 3-letter codons using IUPAC codes
+-    iupac_bases = list(amb2std.keys())
+-    all_combinations = [''.join(codon) for codon in product(iupac_bases, repeat=3)]
+-
+-    def expand_ambiguous_codon(codon):
+-        """Expand an ambiguous codon into all possible standard codons it can represent."""
+-        return [''.join(bases) for bases in product(*[amb2std[nuc] for nuc in codon])]
+-
+-    def generate_ambiguous_translation_dict(codon_to_amino_acid):
+-        """Generate a dictionary of ambiguous codons that map to a single amino acid."""
+-        ambiguous_translation_dict = {}
+-
+-        for ambiguous_codon in all_combinations:
+-            expanded_codons = expand_ambiguous_codon(ambiguous_codon)
+-            
+-            # find the corresponding amino acid for each expanded codon
+-            amino_acids = {codon_to_amino_acid[codon] for codon in expanded_codons if codon in codon_to_amino_acid}
+-            
+-            # if all expanded codons map to the same amino acid, add to the dictionary
+-            if len(amino_acids) == 1:
+-                ambiguous_translation_dict[ambiguous_codon] = amino_acids.pop()
+-        
+-        return ambiguous_translation_dict
+-
+-    # generate the final translation dictionary
+-    updated_data = generate_ambiguous_translation_dict(data['codons'])
+-    data['codons'] = updated_data
+-
+-    return data
+-
+-def save_table(directory, table_number, data):
+-    """Save a SINGLE translation table to JSON file."""
+-    file_name = f"table_{table_number}.json"
+-    file_path = os.path.join(directory, file_name)
+-    
+-    with open(file_path, 'w', encoding='utf-8') as json_file:
+-        json.dump(data, json_file, indent=2)
+-
+-def load_tables(directory, tables=None):
+-    """Loads genetic codes from JSON files in the specified directory."""
+-    genetic_codes = {}
+-    
+-    for file_name in os.listdir(directory):
+-        if file_name.endswith('.json'):
+-            try:
+-                table_number = int(os.path.splitext(file_name)[0].split('_')[-1])
+-            except ValueError: # skip invalid names
+-                continue
+-            if tables and table_number not in tables: # only get specified tables
+-                continue
+-
+-            file_path = os.path.join(directory, file_name)
+-            
+-            # extract the table number from the file name
+-            table_number = os.path.splitext(file_name)[0].split('_')[-1]
+-            
+-            # load the JSON data
+-            with open(file_path, 'r', encoding='utf-8') as json_file:
+-                data = json.load(json_file)
+-                genetic_codes[table_number] = data
+-                
+-    # sort the dictionary by table numbers (converted to integers for proper sorting)
+-    return dict(sorted(genetic_codes.items(), key=lambda x: int(x[0])))
+-
+-def print_table(table_number, data, columns=4):
+-    """Pretty prints the translation table in a grid format."""
+-    print(f"Translation Table {table_number}:")
+-    print("=" * (17 * columns - 1))
+-    
+-    # print initiator codons
+-    print("Initiator Codons:")
+-    print(", ".join(sorted(data['initiators'])))
+-    print()
+-    
+-    # print codon to amino acid mapping in grid format
+-    print("Codon to Amino Acid Mapping:")
+-    codons = sorted(data['codons'].items())
+-    
+-    # determine the number of rows
+-    num_rows = (len(codons) + columns - 1) // columns
+-    
+-    # print the header for the grid
+-    header = "{:<10} {:<5} " * columns
+-    print(header.format(*(f"Codon", f"AA") * columns))
+-    print("-" * (17 * columns - 1))
+-    
+-    # print each row of the grid
+-    for row in range(num_rows):
+-        row_data = []
+-        for col in range(columns):
+-            index = row + num_rows * col
+-            if index < len(codons):
+-                codon, amino_acid = codons[index]
+-                row_data.extend([codon, amino_acid])
+-            else:
+-                row_data.extend(["", ""])  # fill empty cells if not enough data
+-        print(header.format(*row_data))
+-    
+-    print("=" * (17 * columns - 1))
+-    print()
+-
+-    # print codon for each amino acid
+-    amino_acid_to_codons = {}
+-    for codon, amino_acid in data['codons'].items():
+-        if amino_acid not in amino_acid_to_codons:
+-            amino_acid_to_codons[amino_acid] = []
+-        amino_acid_to_codons[amino_acid].append(codon)
+-    
+-    print("Codons for each Amino Acid:")
+-    for amino_acid, codons in sorted(amino_acid_to_codons.items()):
+-        print(f"{amino_acid}: {', '.join(sorted(codons))}")
+-    print("=" * (17 * columns - 1))
+-    print()
+-
+-def ambiguous_to_standard():
+-    return {
+-        'A': ['A'], 'C': ['C'], 'G': ['G'], 'T': ['T'],
+-        'R': ['A', 'G'], 'Y': ['C', 'T'], 'S': ['G', 'C'],
+-        'W': ['A', 'T'], 'K': ['G', 'T'], 'M': ['A', 'C'],
+-        'B': ['C', 'G', 'T'], 'D': ['A', 'G', 'T'],
+-        'H': ['A', 'C', 'T'], 'V': ['A', 'C', 'G'],
+-        'N': ['A', 'C', 'G', 'T']
+-    }
+-    
+-
+-if __name__ == "__main__":
+-    parser = argparse.ArgumentParser(description="Parse genetic codes from NCBI table and store into JSON objects.")
+-    parser.add_argument('-f', type=str, help="Path to the input file containing genetic codes.", default='./tables/ncbi_tables.txt')
+-    parser.add_argument('-o', type=str, help="Directory where the JSON files will be saved.", default='./tables')
+-    parser.add_argument('-v', action='store_true', help="Enable verbose output.")
+-    parser.add_argument('-t', action='store_true', help="Use three-letter amino acid codes.")
+-    args = parser.parse_args()
+-
+-    # extract translation tables
+-    genetic_codes(args.f, args.o, args.v, args.t)
+-
+-    # pretty print example tables
+-    example_tables = [1]
+-    genetic_code_data = load_tables(args.o, example_tables)
+-    for table_number, data in genetic_code_data.items():
+-        print_table(table_number, data)
+-
+-    # add ambiguous codons to all tables
+-    genetic_code_data = load_tables(args.o)
+-    print(genetic_code_data)
+-    for table_number, data in genetic_code_data.items():
+-        updated_data = add_ambiguous_codons(data) 
+-        print_table(table_number, updated_data)
+-        save_table(args.o, table_number, updated_data)
+-    
+-    # pretty print modified example tables
+-    genetic_code_data = load_tables(args.o, example_tables)
+-    for table_number, data in genetic_code_data.items():
+-        print_table(table_number, data)
+\ No newline at end of file
+diff --git a/transmark/tables/__init__.py b/transmark/tables/__init__.py
+deleted file mode 100644
+index e69de29..0000000
+diff --git a/transmark/tables/ncbi.json b/transmark/tables/ncbi.json
+deleted file mode 100644
+index 1a2c98f..0000000
+--- a/transmark/tables/ncbi.json
++++ /dev/null
+@@ -1 +0,0 @@
+-{"1": {"initiators": ["TTG", "CTG", "ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Ter", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "2": {"initiators": ["GTG", "ATC", "ATA", "ATT", "ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Met", "ACA": "Thr", "AAA": "Lys", "AGA": "Ter", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Ter", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "3": {"initiators": ["ATA", "ATG", "GTG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Thr", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Thr", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Thr", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Thr", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Met", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "4": {"initiators": ["GTG", "TTA", "ATC", "ATA", "ATT", "TTG", "CTG", "ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "5": {"initiators": ["GTG", "ATC", "ATA", "ATT", "TTG", "ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Met", "ACA": "Thr", "AAA": "Lys", "AGA": "Ser", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Ser", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "6": {"initiators": ["ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Gln", "TGA": "Ter", "TTG": "Leu", "TCG": "Ser", "TAG": "Gln", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "9": {"initiators": ["ATG", "GTG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Asn", "AGA": "Ser", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Ser", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "10": {"initiators": ["ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Cys", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "11": {"initiators": ["GTG", "ATC", "ATA", "ATT", "TTG", "CTG", "ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Ter", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "12": {"initiators": ["CTG", "ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Ter", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Ser", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "13": {"initiators": ["TTG", "ATA", "ATG", "GTG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Met", "ACA": "Thr", "AAA": "Lys", "AGA": "Gly", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Gly", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "14": {"initiators": ["ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Tyr", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Asn", "AGA": "Ser", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Ser", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "15": {"initiators": ["ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Ter", "TTG": "Leu", "TCG": "Ser", "TAG": "Gln", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "16": {"initiators": ["ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Ter", "TTG": "Leu", "TCG": "Ser", "TAG": "Leu", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "21": {"initiators": ["ATG", "GTG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Met", "ACA": "Thr", "AAA": "Asn", "AGA": "Ser", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Ser", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "22": {"initiators": ["ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ter", "TAA": "Ter", "TGA": "Ter", "TTG": "Leu", "TCG": "Ser", "TAG": "Leu", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "23": {"initiators": ["ATG", "ATT", "GTG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Ter", "TCA": "Ser", "TAA": "Ter", "TGA": "Ter", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "24": {"initiators": ["TTG", "CTG", "ATG", "GTG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Ser", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Lys", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "25": {"initiators": ["TTG", "ATG", "GTG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Gly", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "26": {"initiators": ["CTG", "ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Ter", "TGA": "Ter", "TTG": "Leu", "TCG": "Ser", "TAG": "Ter", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Ala", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "27": {"initiators": ["ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Gln", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Gln", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "28": {"initiators": ["ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Gln", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Gln", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "29": {"initiators": ["ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Tyr", "TGA": "Ter", "TTG": "Leu", "TCG": "Ser", "TAG": "Tyr", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "30": {"initiators": ["ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Glu", "TGA": "Ter", "TTG": "Leu", "TCG": "Ser", "TAG": "Glu", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}, "31": {"initiators": ["ATG"], "codons": {"TTT": "Phe", "TCT": "Ser", "TAT": "Tyr", "TGT": "Cys", "TTC": "Phe", "TCC": "Ser", "TAC": "Tyr", "TGC": "Cys", "TTA": "Leu", "TCA": "Ser", "TAA": "Glu", "TGA": "Trp", "TTG": "Leu", "TCG": "Ser", "TAG": "Glu", "TGG": "Trp", "CTT": "Leu", "CCT": "Pro", "CAT": "His", "CGT": "Arg", "CTC": "Leu", "CCC": "Pro", "CAC": "His", "CGC": "Arg", "CTA": "Leu", "CCA": "Pro", "CAA": "Gln", "CGA": "Arg", "CTG": "Leu", "CCG": "Pro", "CAG": "Gln", "CGG": "Arg", "ATT": "Ile", "ACT": "Thr", "AAT": "Asn", "AGT": "Ser", "ATC": "Ile", "ACC": "Thr", "AAC": "Asn", "AGC": "Ser", "ATA": "Ile", "ACA": "Thr", "AAA": "Lys", "AGA": "Arg", "ATG": "Met", "ACG": "Thr", "AAG": "Lys", "AGG": "Arg", "GTT": "Val", "GCT": "Ala", "GAT": "Asp", "GGT": "Gly", "GTC": "Val", "GCC": "Ala", "GAC": "Asp", "GGC": "Gly", "GTA": "Val", "GCA": "Ala", "GAA": "Glu", "GGA": "Gly", "GTG": "Val", "GCG": "Ala", "GAG": "Glu", "GGG": "Gly"}}}
+diff --git a/transmark/tables/ncbi_tables.txt b/transmark/tables/ncbi_tables.txt
+deleted file mode 100644
+index 76d052e..0000000
+--- a/transmark/tables/ncbi_tables.txt
++++ /dev/null
+@@ -1,570 +0,0 @@
+-# NCBI Genetic Codes. 
+-# Obtained from https://github.com/linsalrob/genetic_codes/blob/main/codes/ncbi_tables.txt 14/7/2024
+-# Adapted from https://www.ncbi.nlm.nih.gov/Taxonomy/Utils/wprintgc.cgi?chapter=tgencodes#SG1 21/12/2023
+-
+-1. The Standard Code (transl_table=1)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA * Ter  
+-TTG L Leu i    TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu i    CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-2. The Vertebrate Mitochondrial Code (transl_table=2)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA W Trp  
+-TTG L Leu      TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile i    ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile i    ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA M Met i    ACA T Thr      AAA K Lys      AGA * Ter  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG * Ter  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-3. The Yeast Mitochondrial Code (transl_table=3)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA W Trp  
+-TTG L Leu      TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT T Thr      CCT P Pro      CAT H His      CGT R Arg  
+-CTC T Thr      CCC P Pro      CAC H His      CGC R Arg  
+-CTA T Thr      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG T Thr      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA M Met i    ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-4. The Mold, Protozoan, and Coelenterate Mitochondrial Code and the Mycoplasma/Spiroplasma Code (transl_table=4)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu i    TCA S Ser      TAA * Ter      TGA W Trp  
+-TTG L Leu i    TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu i    CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile i    ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile i    ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile i    ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-5. The Invertebrate Mitochondrial Code (transl_table=5)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA W Trp  
+-TTG L Leu i    TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile i    ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile i    ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA M Met i    ACA T Thr      AAA K Lys      AGA S Ser  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG S Ser  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-6. The Ciliate, Dasycladacean and Hexamita Nuclear Code (transl_table=6)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA Q Gln      TGA * Ter  
+-TTG L Leu      TCG S Ser      TAG Q Gln      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-9. The Echinoderm and Flatworm Mitochondrial Code (transl_table=9)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA W Trp  
+-TTG L Leu      TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA N Asn      AGA S Ser  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG S Ser  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-10. The Euplotid Nuclear Code (transl_table=10)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA C Cys  
+-TTG L Leu      TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-11. The Bacterial, Archaeal and Plant Plastid Code (transl_table=11)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA * Ter  
+-TTG L Leu i    TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu i    CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile i    ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile i    ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile i    ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-12. The Alternative Yeast Nuclear Code (transl_table=12)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA * Ter  
+-TTG L Leu      TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG S Ser i    CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-13. The Ascidian Mitochondrial Code (transl_table=13)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA W Trp  
+-TTG L Leu i    TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA M Met i    ACA T Thr      AAA K Lys      AGA G Gly  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG G Gly  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-14. The Alternative Flatworm Mitochondrial Code (transl_table=14)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA Y Tyr      TGA W Trp  
+-TTG L Leu      TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA N Asn      AGA S Ser  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG S Ser  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-15. Blepharisma Nuclear Code (transl_table=15)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA * Ter  
+-TTG L Leu      TCG S Ser      TAG Q Gln      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-16. Chlorophycean Mitochondrial Code (transl_table=16)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA * Ter  
+-TTG L Leu      TCG S Ser      TAG L Leu      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-21. Trematode Mitochondrial Code (transl_table=21)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA W Trp  
+-TTG L Leu      TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA M Met      ACA T Thr      AAA N Asn      AGA S Ser  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG S Ser  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-22. Scenedesmus obliquus Mitochondrial Code (transl_table=22)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA * Ter      TAA * Ter      TGA * Ter  
+-TTG L Leu      TCG S Ser      TAG L Leu      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-23. Thraustochytrium Mitochondrial Code (transl_table=23)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA * Ter      TCA S Ser      TAA * Ter      TGA * Ter  
+-TTG L Leu      TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile i    ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-24. Rhabdopleuridae Mitochondrial Code (transl_table=24)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA W Trp  
+-TTG L Leu i    TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu i    CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA S Ser  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG K Lys  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-25. Candidate Division SR1 and Gracilibacteria Code (transl_table=25)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA G Gly  
+-TTG L Leu i    TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-26. Pachysolen tannophilus Nuclear Code (transl_table=26)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA * Ter      TGA * Ter  
+-TTG L Leu      TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG A Ala i    CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-
+-27. Karyorelict Nuclear Code (transl_table=27)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA Q Gln      TGA W Trp  
+-TTG L Leu      TCG S Ser      TAG Q Gln      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-28. Condylostoma Nuclear Code (transl_table=28)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA Q Gln      TGA W Trp  
+-TTG L Leu      TCG S Ser      TAG Q Gln      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-29. Mesodinium Nuclear Code (transl_table=29)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA Y Tyr      TGA * Ter  
+-TTG L Leu      TCG S Ser      TAG Y Tyr      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-30. Peritrich Nuclear Code (transl_table=30)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA E Glu      TGA * Ter  
+-TTG L Leu      TCG S Ser      TAG E Glu      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-
+-
+-31. Blastocrithidia Nuclear Code (transl_table=31)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA E Glu      TGA W Trp  
+-TTG L Leu      TCG S Ser      TAG E Glu      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu      CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA R Arg  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG R Arg  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val      GCG A Ala      GAG E Glu      GGG G Gly  
+-
+-
+-33. Cephalodiscidae Mitochondrial UAA-Tyr Code (transl_table=33)
+-TTT F Phe      TCT S Ser      TAT Y Tyr      TGT C Cys  
+-TTC F Phe      TCC S Ser      TAC Y Tyr      TGC C Cys  
+-TTA L Leu      TCA S Ser      TAA Y Tyr      TGA W Trp  
+-TTG L Leu i    TCG S Ser      TAG * Ter      TGG W Trp  
+-
+-CTT L Leu      CCT P Pro      CAT H His      CGT R Arg  
+-CTC L Leu      CCC P Pro      CAC H His      CGC R Arg  
+-CTA L Leu      CCA P Pro      CAA Q Gln      CGA R Arg  
+-CTG L Leu i    CCG P Pro      CAG Q Gln      CGG R Arg  
+-
+-ATT I Ile      ACT T Thr      AAT N Asn      AGT S Ser  
+-ATC I Ile      ACC T Thr      AAC N Asn      AGC S Ser  
+-ATA I Ile      ACA T Thr      AAA K Lys      AGA S Ser  
+-ATG M Met i    ACG T Thr      AAG K Lys      AGG K Lys  
+-
+-GTT V Val      GCT A Ala      GAT D Asp      GGT G Gly  
+-GTC V Val      GCC A Ala      GAC D Asp      GGC G Gly  
+-GTA V Val      GCA A Ala      GAA E Glu      GGA G Gly  
+-GTG V Val i    GCG A Ala      GAG E Glu      GGG G Gly  
+\ No newline at end of file
+diff --git a/transmark/tables/table_1.json b/transmark/tables/table_1.json
+deleted file mode 100644
+index d9631e2..0000000
+--- a/transmark/tables/table_1.json
++++ /dev/null
+@@ -1,185 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG",
+-    "CTG",
+-    "TTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "*",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "TRA": "*",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_10.json b/transmark/tables/table_10.json
+deleted file mode 100644
+index d9a0f34..0000000
+--- a/transmark/tables/table_10.json
++++ /dev/null
+@@ -1,185 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "C",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TGW": "C",
+-    "TGM": "C",
+-    "TGH": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_11.json b/transmark/tables/table_11.json
+deleted file mode 100644
+index bb69ee3..0000000
+--- a/transmark/tables/table_11.json
++++ /dev/null
+@@ -1,189 +0,0 @@
+-{
+-  "initiators": [
+-    "ATA",
+-    "ATC",
+-    "ATG",
+-    "ATT",
+-    "CTG",
+-    "GTG",
+-    "TTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "*",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "TRA": "*",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_12.json b/transmark/tables/table_12.json
+deleted file mode 100644
+index e10ef53..0000000
+--- a/transmark/tables/table_12.json
++++ /dev/null
+@@ -1,175 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG",
+-    "CTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "S",
+-    "CTT": "L",
+-    "CTY": "L",
+-    "CTW": "L",
+-    "CTM": "L",
+-    "CTH": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "*",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "TRA": "*",
+-    "YTA": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_13.json b/transmark/tables/table_13.json
+deleted file mode 100644
+index 5a56bee..0000000
+--- a/transmark/tables/table_13.json
++++ /dev/null
+@@ -1,184 +0,0 @@
+-{
+-  "initiators": [
+-    "ATA",
+-    "ATG",
+-    "GTG",
+-    "TTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "G",
+-    "AGC": "S",
+-    "AGG": "G",
+-    "AGT": "S",
+-    "AGR": "G",
+-    "AGY": "S",
+-    "ATA": "M",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATR": "M",
+-    "ATY": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "RGA": "G",
+-    "RGG": "G",
+-    "RGR": "G",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_14.json b/transmark/tables/table_14.json
+deleted file mode 100644
+index 455ca42..0000000
+--- a/transmark/tables/table_14.json
++++ /dev/null
+@@ -1,193 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG"
+-  ],
+-  "codons": {
+-    "AAA": "N",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAY": "N",
+-    "AAW": "N",
+-    "AAM": "N",
+-    "AAH": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "S",
+-    "AGC": "S",
+-    "AGG": "S",
+-    "AGT": "S",
+-    "AGR": "S",
+-    "AGY": "S",
+-    "AGS": "S",
+-    "AGW": "S",
+-    "AGK": "S",
+-    "AGM": "S",
+-    "AGB": "S",
+-    "AGD": "S",
+-    "AGH": "S",
+-    "AGV": "S",
+-    "AGN": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "Y",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAY": "Y",
+-    "TAW": "Y",
+-    "TAM": "Y",
+-    "TAH": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_15.json b/transmark/tables/table_15.json
+deleted file mode 100644
+index d0df1c2..0000000
+--- a/transmark/tables/table_15.json
++++ /dev/null
+@@ -1,183 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "Q",
+-    "TAT": "Y",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "*",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "TRA": "*",
+-    "YAG": "Q",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_16.json b/transmark/tables/table_16.json
+deleted file mode 100644
+index a38fd1c..0000000
+--- a/transmark/tables/table_16.json
++++ /dev/null
+@@ -1,183 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "L",
+-    "TAT": "Y",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "*",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "TRA": "*",
+-    "TWG": "L",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_2.json b/transmark/tables/table_2.json
+deleted file mode 100644
+index 46dda2b..0000000
+--- a/transmark/tables/table_2.json
++++ /dev/null
+@@ -1,182 +0,0 @@
+-{
+-  "initiators": [
+-    "ATA",
+-    "ATC",
+-    "ATG",
+-    "ATT",
+-    "GTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "*",
+-    "AGC": "S",
+-    "AGG": "*",
+-    "AGT": "S",
+-    "AGR": "*",
+-    "AGY": "S",
+-    "ATA": "M",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATR": "M",
+-    "ATY": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_21.json b/transmark/tables/table_21.json
+deleted file mode 100644
+index 4e89bd2..0000000
+--- a/transmark/tables/table_21.json
++++ /dev/null
+@@ -1,190 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG",
+-    "GTG"
+-  ],
+-  "codons": {
+-    "AAA": "N",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAY": "N",
+-    "AAW": "N",
+-    "AAM": "N",
+-    "AAH": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "S",
+-    "AGC": "S",
+-    "AGG": "S",
+-    "AGT": "S",
+-    "AGR": "S",
+-    "AGY": "S",
+-    "AGS": "S",
+-    "AGW": "S",
+-    "AGK": "S",
+-    "AGM": "S",
+-    "AGB": "S",
+-    "AGD": "S",
+-    "AGH": "S",
+-    "AGV": "S",
+-    "AGN": "S",
+-    "ATA": "M",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATR": "M",
+-    "ATY": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_22.json b/transmark/tables/table_22.json
+deleted file mode 100644
+index 09153a9..0000000
+--- a/transmark/tables/table_22.json
++++ /dev/null
+@@ -1,179 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "L",
+-    "TAT": "Y",
+-    "TAY": "Y",
+-    "TCA": "*",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCK": "S",
+-    "TCB": "S",
+-    "TGA": "*",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "TRA": "*",
+-    "TSA": "*",
+-    "TWG": "L",
+-    "TMA": "*",
+-    "TVA": "*",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_23.json b/transmark/tables/table_23.json
+deleted file mode 100644
+index 0c7839a..0000000
+--- a/transmark/tables/table_23.json
++++ /dev/null
+@@ -1,185 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG",
+-    "ATT",
+-    "GTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "*",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "*",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTY": "F",
+-    "TRA": "*",
+-    "TWA": "*",
+-    "TKA": "*",
+-    "TDA": "*",
+-    "YTG": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_24.json b/transmark/tables/table_24.json
+deleted file mode 100644
+index 4c227b6..0000000
+--- a/transmark/tables/table_24.json
++++ /dev/null
+@@ -1,186 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG",
+-    "CTG",
+-    "GTG",
+-    "TTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "S",
+-    "AGC": "S",
+-    "AGG": "K",
+-    "AGT": "S",
+-    "AGY": "S",
+-    "AGW": "S",
+-    "AGM": "S",
+-    "AGH": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "ARG": "K",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_25.json b/transmark/tables/table_25.json
+deleted file mode 100644
+index 54fad86..0000000
+--- a/transmark/tables/table_25.json
++++ /dev/null
+@@ -1,185 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG",
+-    "GTG",
+-    "TTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "G",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "KGA": "G",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_26.json b/transmark/tables/table_26.json
+deleted file mode 100644
+index ffddbae..0000000
+--- a/transmark/tables/table_26.json
++++ /dev/null
+@@ -1,175 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG",
+-    "CTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "A",
+-    "CTT": "L",
+-    "CTY": "L",
+-    "CTW": "L",
+-    "CTM": "L",
+-    "CTH": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "*",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "TRA": "*",
+-    "YTA": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_27.json b/transmark/tables/table_27.json
+deleted file mode 100644
+index 58918ac..0000000
+--- a/transmark/tables/table_27.json
++++ /dev/null
+@@ -1,186 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "Q",
+-    "TAC": "Y",
+-    "TAG": "Q",
+-    "TAT": "Y",
+-    "TAR": "Q",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YAA": "Q",
+-    "YAG": "Q",
+-    "YAR": "Q",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_28.json b/transmark/tables/table_28.json
+deleted file mode 100644
+index 58918ac..0000000
+--- a/transmark/tables/table_28.json
++++ /dev/null
+@@ -1,186 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "Q",
+-    "TAC": "Y",
+-    "TAG": "Q",
+-    "TAT": "Y",
+-    "TAR": "Q",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YAA": "Q",
+-    "YAG": "Q",
+-    "YAR": "Q",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_29.json b/transmark/tables/table_29.json
+deleted file mode 100644
+index 9ea6895..0000000
+--- a/transmark/tables/table_29.json
++++ /dev/null
+@@ -1,191 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "Y",
+-    "TAC": "Y",
+-    "TAG": "Y",
+-    "TAT": "Y",
+-    "TAR": "Y",
+-    "TAY": "Y",
+-    "TAS": "Y",
+-    "TAW": "Y",
+-    "TAK": "Y",
+-    "TAM": "Y",
+-    "TAB": "Y",
+-    "TAD": "Y",
+-    "TAH": "Y",
+-    "TAV": "Y",
+-    "TAN": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "*",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_3.json b/transmark/tables/table_3.json
+deleted file mode 100644
+index 7f7f741..0000000
+--- a/transmark/tables/table_3.json
++++ /dev/null
+@@ -1,180 +0,0 @@
+-{
+-  "initiators": [
+-    "ATA",
+-    "ATG",
+-    "GTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "M",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATR": "M",
+-    "ATY": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "T",
+-    "CTC": "T",
+-    "CTG": "T",
+-    "CTT": "T",
+-    "CTR": "T",
+-    "CTY": "T",
+-    "CTS": "T",
+-    "CTW": "T",
+-    "CTK": "T",
+-    "CTM": "T",
+-    "CTB": "T",
+-    "CTD": "T",
+-    "CTH": "T",
+-    "CTV": "T",
+-    "CTN": "T",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_30.json b/transmark/tables/table_30.json
+deleted file mode 100644
+index f2ede41..0000000
+--- a/transmark/tables/table_30.json
++++ /dev/null
+@@ -1,185 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "E",
+-    "TAC": "Y",
+-    "TAG": "E",
+-    "TAT": "Y",
+-    "TAR": "E",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "*",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "KAA": "E",
+-    "KAG": "E",
+-    "KAR": "E",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_31.json b/transmark/tables/table_31.json
+deleted file mode 100644
+index 4ed3d96..0000000
+--- a/transmark/tables/table_31.json
++++ /dev/null
+@@ -1,186 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "E",
+-    "TAC": "Y",
+-    "TAG": "E",
+-    "TAT": "Y",
+-    "TAR": "E",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "KAA": "E",
+-    "KAG": "E",
+-    "KAR": "E",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_33.json b/transmark/tables/table_33.json
+deleted file mode 100644
+index 14f8019..0000000
+--- a/transmark/tables/table_33.json
++++ /dev/null
+@@ -1,188 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG",
+-    "CTG",
+-    "GTG",
+-    "TTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "S",
+-    "AGC": "S",
+-    "AGG": "K",
+-    "AGT": "S",
+-    "AGY": "S",
+-    "AGW": "S",
+-    "AGM": "S",
+-    "AGH": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "ARG": "K",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "Y",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAY": "Y",
+-    "TAW": "Y",
+-    "TAM": "Y",
+-    "TAH": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_4.json b/transmark/tables/table_4.json
+deleted file mode 100644
+index ac61148..0000000
+--- a/transmark/tables/table_4.json
++++ /dev/null
+@@ -1,190 +0,0 @@
+-{
+-  "initiators": [
+-    "ATA",
+-    "ATC",
+-    "ATG",
+-    "ATT",
+-    "CTG",
+-    "GTG",
+-    "TTA",
+-    "TTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_5.json b/transmark/tables/table_5.json
+deleted file mode 100644
+index 6f4dd7a..0000000
+--- a/transmark/tables/table_5.json
++++ /dev/null
+@@ -1,192 +0,0 @@
+-{
+-  "initiators": [
+-    "ATA",
+-    "ATC",
+-    "ATG",
+-    "ATT",
+-    "GTG",
+-    "TTG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "S",
+-    "AGC": "S",
+-    "AGG": "S",
+-    "AGT": "S",
+-    "AGR": "S",
+-    "AGY": "S",
+-    "AGS": "S",
+-    "AGW": "S",
+-    "AGK": "S",
+-    "AGM": "S",
+-    "AGB": "S",
+-    "AGD": "S",
+-    "AGH": "S",
+-    "AGV": "S",
+-    "AGN": "S",
+-    "ATA": "M",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATR": "M",
+-    "ATY": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_6.json b/transmark/tables/table_6.json
+deleted file mode 100644
+index 99c04ac..0000000
+--- a/transmark/tables/table_6.json
++++ /dev/null
+@@ -1,185 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG"
+-  ],
+-  "codons": {
+-    "AAA": "K",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAR": "K",
+-    "AAY": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "R",
+-    "AGC": "S",
+-    "AGG": "R",
+-    "AGT": "S",
+-    "AGR": "R",
+-    "AGY": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "Q",
+-    "TAC": "Y",
+-    "TAG": "Q",
+-    "TAT": "Y",
+-    "TAR": "Q",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "*",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YAA": "Q",
+-    "YAG": "Q",
+-    "YAR": "Q",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L",
+-    "MGA": "R",
+-    "MGG": "R",
+-    "MGR": "R"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/tables/table_9.json b/transmark/tables/table_9.json
+deleted file mode 100644
+index b9810dd..0000000
+--- a/transmark/tables/table_9.json
++++ /dev/null
+@@ -1,192 +0,0 @@
+-{
+-  "initiators": [
+-    "ATG",
+-    "GTG"
+-  ],
+-  "codons": {
+-    "AAA": "N",
+-    "AAC": "N",
+-    "AAG": "K",
+-    "AAT": "N",
+-    "AAY": "N",
+-    "AAW": "N",
+-    "AAM": "N",
+-    "AAH": "N",
+-    "ACA": "T",
+-    "ACC": "T",
+-    "ACG": "T",
+-    "ACT": "T",
+-    "ACR": "T",
+-    "ACY": "T",
+-    "ACS": "T",
+-    "ACW": "T",
+-    "ACK": "T",
+-    "ACM": "T",
+-    "ACB": "T",
+-    "ACD": "T",
+-    "ACH": "T",
+-    "ACV": "T",
+-    "ACN": "T",
+-    "AGA": "S",
+-    "AGC": "S",
+-    "AGG": "S",
+-    "AGT": "S",
+-    "AGR": "S",
+-    "AGY": "S",
+-    "AGS": "S",
+-    "AGW": "S",
+-    "AGK": "S",
+-    "AGM": "S",
+-    "AGB": "S",
+-    "AGD": "S",
+-    "AGH": "S",
+-    "AGV": "S",
+-    "AGN": "S",
+-    "ATA": "I",
+-    "ATC": "I",
+-    "ATG": "M",
+-    "ATT": "I",
+-    "ATY": "I",
+-    "ATW": "I",
+-    "ATM": "I",
+-    "ATH": "I",
+-    "CAA": "Q",
+-    "CAC": "H",
+-    "CAG": "Q",
+-    "CAT": "H",
+-    "CAR": "Q",
+-    "CAY": "H",
+-    "CCA": "P",
+-    "CCC": "P",
+-    "CCG": "P",
+-    "CCT": "P",
+-    "CCR": "P",
+-    "CCY": "P",
+-    "CCS": "P",
+-    "CCW": "P",
+-    "CCK": "P",
+-    "CCM": "P",
+-    "CCB": "P",
+-    "CCD": "P",
+-    "CCH": "P",
+-    "CCV": "P",
+-    "CCN": "P",
+-    "CGA": "R",
+-    "CGC": "R",
+-    "CGG": "R",
+-    "CGT": "R",
+-    "CGR": "R",
+-    "CGY": "R",
+-    "CGS": "R",
+-    "CGW": "R",
+-    "CGK": "R",
+-    "CGM": "R",
+-    "CGB": "R",
+-    "CGD": "R",
+-    "CGH": "R",
+-    "CGV": "R",
+-    "CGN": "R",
+-    "CTA": "L",
+-    "CTC": "L",
+-    "CTG": "L",
+-    "CTT": "L",
+-    "CTR": "L",
+-    "CTY": "L",
+-    "CTS": "L",
+-    "CTW": "L",
+-    "CTK": "L",
+-    "CTM": "L",
+-    "CTB": "L",
+-    "CTD": "L",
+-    "CTH": "L",
+-    "CTV": "L",
+-    "CTN": "L",
+-    "GAA": "E",
+-    "GAC": "D",
+-    "GAG": "E",
+-    "GAT": "D",
+-    "GAR": "E",
+-    "GAY": "D",
+-    "GCA": "A",
+-    "GCC": "A",
+-    "GCG": "A",
+-    "GCT": "A",
+-    "GCR": "A",
+-    "GCY": "A",
+-    "GCS": "A",
+-    "GCW": "A",
+-    "GCK": "A",
+-    "GCM": "A",
+-    "GCB": "A",
+-    "GCD": "A",
+-    "GCH": "A",
+-    "GCV": "A",
+-    "GCN": "A",
+-    "GGA": "G",
+-    "GGC": "G",
+-    "GGG": "G",
+-    "GGT": "G",
+-    "GGR": "G",
+-    "GGY": "G",
+-    "GGS": "G",
+-    "GGW": "G",
+-    "GGK": "G",
+-    "GGM": "G",
+-    "GGB": "G",
+-    "GGD": "G",
+-    "GGH": "G",
+-    "GGV": "G",
+-    "GGN": "G",
+-    "GTA": "V",
+-    "GTC": "V",
+-    "GTG": "V",
+-    "GTT": "V",
+-    "GTR": "V",
+-    "GTY": "V",
+-    "GTS": "V",
+-    "GTW": "V",
+-    "GTK": "V",
+-    "GTM": "V",
+-    "GTB": "V",
+-    "GTD": "V",
+-    "GTH": "V",
+-    "GTV": "V",
+-    "GTN": "V",
+-    "TAA": "*",
+-    "TAC": "Y",
+-    "TAG": "*",
+-    "TAT": "Y",
+-    "TAR": "*",
+-    "TAY": "Y",
+-    "TCA": "S",
+-    "TCC": "S",
+-    "TCG": "S",
+-    "TCT": "S",
+-    "TCR": "S",
+-    "TCY": "S",
+-    "TCS": "S",
+-    "TCW": "S",
+-    "TCK": "S",
+-    "TCM": "S",
+-    "TCB": "S",
+-    "TCD": "S",
+-    "TCH": "S",
+-    "TCV": "S",
+-    "TCN": "S",
+-    "TGA": "W",
+-    "TGC": "C",
+-    "TGG": "W",
+-    "TGT": "C",
+-    "TGR": "W",
+-    "TGY": "C",
+-    "TTA": "L",
+-    "TTC": "F",
+-    "TTG": "L",
+-    "TTT": "F",
+-    "TTR": "L",
+-    "TTY": "F",
+-    "YTA": "L",
+-    "YTG": "L",
+-    "YTR": "L"
+-  }
+-}
+\ No newline at end of file
+diff --git a/transmark/translator.py b/transmark/translator.py
+deleted file mode 100644
+index 3c8fd5e..0000000
+--- a/transmark/translator.py
++++ /dev/null
+@@ -1,146 +0,0 @@
+-import json
+-import pkg_resources
+-
+-class Translator:
+-    def __init__(self, table=1, three_letter=False, m_start=False):
+-        if table not in legal_tables():
+-            raise ValueError(f"Table {table} is not a legal table")
+-        if table in stopless_tables():
+-            print(f"[WARNING] Table {table} does not contain stop codons")
+-        self.table_num = table
+-        self.table, self.initiators = load_translation_table(table)
+-        self.three_letter = three_letter
+-        if m_start: # sets M as the sole initiator
+-            self.initiators = ['ATG']
+-    
+-    def translate(self, sequence):
+-        '''
+-        Translate the given sequence to protein sequence
+-        Parameters: sequence (str): DNA/RNA sequence to translate
+-        Returns: Tuple[str, List[int], List[int]]: Translated protein sequence, (sorted) initiator positions, and (sorted) stop positions
+-        '''
+-        dna_sequence = standardize_sequence(sequence)
+-        if set(dna_sequence) - legal_letters(): 
+-            raise ValueError(f"Sequence {dna_sequence} contains illegal letters")
+-
+-        protein_sequence = []
+-        start_positions = []
+-        end_positions = []
+-
+-        for i in range(0, len(dna_sequence), 3):
+-            codon = dna_sequence[i:i+3]
+-            amino_acid = self.table.get(codon, 'X')
+-            if codon in self.initiators:
+-                start_positions.append(i // 3)
+-            elif amino_acid == '*':
+-                end_positions.append(i // 3)
+-            if self.three_letter:
+-                amino_acid = one_to_three_letter().get(amino_acid, 'Unk')
+-            protein_sequence.append(amino_acid)
+-
+-        protein_string = ''.join(protein_sequence)
+-
+-        return protein_string, start_positions, end_positions
+-    
+-    def translate_three_frames(self, sequence, strand='+'):
+-        '''
+-        Translate the given sequence in all three frames of given strand
+-        Parameters: sequence (str): DNA/RNA sequence to translate
+-        Returns: List[Tuple[str, List[int]]]: List of translated protein sequences and their initiator positions
+-        '''
+-        translations = []
+-        for frame in range(3):
+-            translated_sequence, initiator_positions, end_positions = self.translate(sequence[frame:])
+-            translations.append((f'{strand}{frame+1}', translated_sequence, initiator_positions, end_positions))
+-        return translations
+-    
+-    def find_orfs(self, sequence, five_prime_partials=False, three_prime_partials=False):
+-        '''
+-        Find all open reading frames in the given sequence
+-        Parameters: sequence (str): DNA/RNA sequence to analyze
+-        Returns: str, List[Tuple[int, int]]: Translated protein sequence and list of ORFs (start, end) positions
+-        '''
+-        protein_sequence, start_positions, end_positions = self.translate(sequence)
+-        orfs = []
+-        cur_pos = -1
+-        start_index = 0
+-        end_index = 0
+-        
+-        if five_prime_partials:
+-            end_positions = end_positions + [len(protein_sequence)]
+-        if three_prime_partials:
+-            start_positions = [0] + start_positions
+-               
+-        while start_index < len(start_positions) and end_index < len(end_positions):
+-            if start_positions[start_index] <= cur_pos:
+-                start_index += 1
+-            elif end_positions[end_index] <= start_positions[start_index]:
+-                end_index += 1
+-            else:
+-                orfs.append((start_positions[start_index], end_positions[end_index]))
+-                cur_pos = end_positions[end_index]
+-                start_index += 1
+-                end_index += 1
+-            
+-        return protein_sequence, orfs
+-
+-
+-def standardize_sequence(sequence):
+-    '''Ensures that given sequence is valid DNA, upper case, and multiple of 3'''
+-    dna = sequence.upper().strip()
+-    dna = dna[:-(len(dna) % 3)] # truncates to last full codon
+-    dna = dna.replace('U', 'T') # replaces U with T in case of RNA
+-    return dna
+-
+-def load_translation_table(table_num=1):
+-    '''Get the corresponding translation table for the genetic code'''
+-    path_table = pkg_resources.resource_filename(__name__, f'tables/table_{table_num}.json')
+-    with open(path_table, 'r') as file:
+-        data = json.load(file)
+-    return data['codons'], data['initiators']
+-
+-def legal_letters():
+-    return {
+-        "A", "C", "G", "T", "R", "Y", "S", "W", "K", "M", "B", "D", "H", "V", "N"
+-    }
+-
+-def legal_tables():
+-    return {
+-        1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 33
+-    }
+-
+-def stopless_tables():
+-    return {
+-        27, 28, 31
+-    }
+-
+-def one_to_three_letter():
+-    return {
+-        "A": "Ala", "R": "Arg", "N": "Asn", "D": "Asp",
+-        "C": "Cys", "Q": "Gln", "E": "Glu", "G": "Gly",
+-        "H": "His", "I": "Ile", "L": "Leu", "K": "Lys",
+-        "M": "Met", "F": "Phe", "P": "Pro", "S": "Ser",
+-        "T": "Thr", "W": "Trp", "Y": "Tyr", "V": "Val",
+-        "*": "Ter", "X": "Unk"
+-    }
+-
+-def main():
+-    import argparse
+-
+-    parser = argparse.ArgumentParser(description='DNA to Protein Translator')
+-    parser.add_argument('sequence', type=str, help='DNA sequence to translate')
+-    parser.add_argument('-t', '--table', type=int, default=1, help='Translation table to use')
+-    parser.add_argument('-3', '--three-letter', action='store_true', help='Use three-letter amino acid codes')
+-    args = parser.parse_args()
+-
+-    # Create an instance of the Translator class
+-    dna2prot = Translator(args.table, args.three_letter)
+-
+-    # Call the translate method
+-    translation, starts = dna2prot.translate(args.sequence)
+-
+-    # Print the translated text
+-    print(translation, starts)
+-
+-if __name__ == '__main__':
+-    main()
+\ No newline at end of file
