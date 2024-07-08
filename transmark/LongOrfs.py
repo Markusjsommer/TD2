@@ -16,6 +16,11 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from transmark.translator import Translator
 
+### INIT GLOBALS ###
+complement_map = ('ACTGNactgnYRWSKMDVHBXyrwskmdvhbx',
+                  'TGACNtgacnRYWSMKHBDVXrywsmkhbdvx')
+complement_table = str.maketrans(complement_map[0], complement_map[1])
+
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -61,7 +66,7 @@ def load_fasta(filepath):
     
     # convert all str to biopython seqs
     # TODO measure performance hit of this
-    seq_list = [Seq(s) for s in seq_list]
+    # seq_list = [Seq(s) for s in seq_list]
     
     f.close()
     print("Loaded...\n")
@@ -101,22 +106,15 @@ def readfq(fp):
     
 def reverse_complement(seq):
     '''Reverse complements DNA seq, returns N for all non-ATGC chars'''
-    complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}
-    seq_reverse_complement = ''.join([complement.get(base, 'N') for base in seq[::-1]])
-    return seq_reverse_complement
+    seq_complement = seq.translate(complement_table)
+    return seq_complement[::-1]
 
 def complement(seq):
     '''Complements DNA seq, returns N for all non-ATGC chars'''
-    complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}
-    seq_complement = ''.join([complement.get(base, 'N') for base in seq])
+    seq_complement = seq.translate(complement_table)
     return seq_complement
     
-def find_probable_ORFs(seq, min_len_aa, strand_specific, genetic_code):
-    '''Finds all open reading frames above minimum length threshold'''
-    
-    pass
-    
-def find_complete_ORFs(seq, translator, min_len_aa, strand_specific):
+def find_ORFs(seq, translator, min_len_aa, strand_specific):
     '''Finds all open reading frames above minimum length threshold'''
     
     all_orf_list = []
@@ -128,7 +126,7 @@ def find_complete_ORFs(seq, translator, min_len_aa, strand_specific):
             continue
         all_orf_list.append((f'+{i+1}', sequence, orfs))
             
-    # do reverse strand if not strand-specific 
+    # do reverse strand if not strand-specific
     if not strand_specific:
         for i in range(3):
             sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:])
@@ -159,11 +157,11 @@ def main():
     else:
         use_orfanage = False
     
-    verbose = args.verbose # TODO work on this at the end
+    verbose = args.verbose # TODO: work on this at the end
 
     print("Python", sys.version, "\n")
     
-    # TODO check args
+    # TODO: check args
     
     # load FASTA
     description_list, seq_list = load_fasta(args.transcripts)
@@ -176,7 +174,7 @@ def main():
     translator = Translator(table=genetic_code, m_start=m_start)
         
     for seq in seq_list:
-        seq_ORF_list = find_complete_ORFs(seq, translator, min_len_aa, strand_specific)
+        seq_ORF_list = find_ORFs(seq, translator, min_len_aa, strand_specific)
         
     # create working directory
     working_base = "transcripts.transmark_dir"
