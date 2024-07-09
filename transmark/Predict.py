@@ -7,6 +7,8 @@ import pandas
 import pickle
 import argparse
 import warnings
+import subprocess
+import pandas
 import numpy as np
 from tqdm.auto import tqdm
 
@@ -54,9 +56,30 @@ def main():
     output_dir = os.path.abspath(args.output_dir)    
     
     # run psauron to score ORFs
+    p_cds = os.path.join(output_dir, "longest_orfs.cds")
+    p_score = os.path.join(output_dir, "psauron_score.csv")
+    command_psauron = ["psauron", "-i"+str(p_cds), "-o" +str(p_score), "-m0"]
+    result_psauron = subprocess.run(command_psauron, capture_output=False, text=True)
+    
+    # load psauron results
+    df_psauron = pandas.read_csv(p_score, skiprows=3)
+    
+    # select transcripts based on psauron score
+    # in-frame > 0.5
+    # all out-of-frame < in-frame
+    df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > 0.5 and all(row[3:] < row['in_frame_score']), axis=1)]
+    
+    ################### TEMP
+    df_psauron_selected.to_csv("~/desktop/foo.csv")
     
 
     # integrate homology search results
+    # parse mmseqs 
+    
+    # parse blast
+    
+    # parse pfam
+    
     
     
     # write intermediate output files to working directory
@@ -65,12 +88,12 @@ def main():
     # TODO
         pass
     p_scores_selected = os.path.join(output_dir, "longest_orfs.cds.scores.selected")
-    with open(p_scores, "wt") as f:
+    with open(p_scores_selected, "wt") as f:
     # TODO
         pass
         
-    p_scores_selected = os.path.join(output_dir, "longest_orfs.cds.scores.selected")
-    with open(p_scores, "wt") as f:
+    p_best_candidates = os.path.join(output_dir, "longest_orfs.cds.best_candidates.gff3")
+    with open(p_best_candidates, "wt") as f:
     # TODO
         pass
     

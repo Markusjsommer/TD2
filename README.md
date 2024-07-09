@@ -3,6 +3,18 @@ A tool to find protein coding ORFs
 
 NOTE: this readme is heavily based on the TransDecoder wiki: https://github.com/TransDecoder/TransDecoder/wiki
 
+
+Transmark identifies likely coding sequences based on the following criteria:
+
+- a minimum length open reading frame (ORF) is found in a transcript sequence
+- a likelihood score computed by PSAURON is > 0.5
+- the above coding score is greatest when the ORF is scored in the 1st reading frame as compared to scores in the other 2 forward reading frames and the 3 reverse frames.
+TODO ask brian if there is a reason to not use reverse frames here as well. should reduce false positives of short orfs within real orfs.
+- if a candidate ORF is found fully encapsulated by the coordinates of another candidate ORF, the longer one is reported. However, a single transcript can report multiple ORFs (allowing for operons, chimeras, etc).
+
+
+
+
 Including homology searches as ORF retention criteria
 We suggest using MMseqs2 for increased speed and sensitivity in protein search.
 An example command would be like so: 
