@@ -130,14 +130,18 @@ def find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only):
     
     # find orfs in forward frames
     for i in range(3):
+        # print(seq[i:])
         sequence, orfs = translator.find_orfs(seq[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial)
+        # print(sequence, orfs)
         filtered_orfs = [orf for orf in orfs if orf[1] - orf[0] >= min_len_aa]
         all_orf_list.append((sequence, filtered_orfs, '+', i+1))
             
     # do reverse strand if not strand-specific
     if not strand_specific:
         for i in range(3):
+            # print(reverse_complement(seq)[i:])
             sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial)
+            # print(sequence, orfs)
             filtered_orfs = [orf for orf in orfs if orf[1] - orf[0] >= min_len_aa]
             all_orf_list.append((sequence, filtered_orfs, '-', i+1))
     
@@ -214,9 +218,9 @@ def main():
         
     # find all ORFs
     seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
-    with open(os.path.join(working_dir, "seq_ORF_list.json"), "wt") as f:
-        json.dump(seq_ORF_list, f, indent=2)
-        print('number of orfs found:', sum([len(seq_ORF_list[i][2]) for i in range(len(seq_ORF_list))]))
+    # with open(os.path.join(working_dir, "seq_ORF_list.json"), "wt") as f:
+    #     json.dump(seq_ORF_list, f, indent=2)
+    #     print('number of orfs found:', sum([len(seq_ORF_list[i][2]) for i in range(len(seq_ORF_list))]))
     
     
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
@@ -234,15 +238,17 @@ def main():
         else:
             gc_name = f'ncbi_table_{genetic_code}'
             
+        # print(len(seq_ORF_list), len(description_list), len(seq_list))
+            
         for entries, desc, gene_seq in zip(seq_ORF_list, description_list, seq_list):
+            count = 1
             for entry in entries:
                 prot_seq = entry[0]
                 orfs = entry[1]
                 strand = entry[2]
                 frame = entry[3]
-                # name = desc.split()[0]
                 name = desc
-                count = 1
+                # print(name, orfs, len(gene_seq), strand, frame)
                 for orf in orfs:
                     start, end = calculate_start_end(orf, len(gene_seq), strand, frame)
                     orf_seq = prot_seq[orf[0]:orf[1]]

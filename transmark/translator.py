@@ -2,14 +2,13 @@ import json
 import pkg_resources
 
 class Translator:
-    def __init__(self, table=1, rna=False, three_letter=False, m_start=False):
+    def __init__(self, table=1, three_letter=False, m_start=False):
         if table not in legal_tables():
             raise ValueError(f"Table {table} is not a legal table")
         if table in stopless_tables():
             print(f"[WARNING] Table {table} does not contain stop codons")
         self.table_num = table
         self.table, self.initiators = load_translation_table(table)
-        self.rna = rna
         self.three_letter = three_letter
         if m_start is True: # sets M as the sole initiator
             self.initiators = ['ATG']
@@ -81,8 +80,6 @@ class Translator:
         if five_prime_partial and start_positions[0] > 0:
             orfs.append((0, end_positions[0]+1, '5prime_partial'))
             cur_pos = end_positions[end_index] # next orf will start after here
-            start_index += 1
-            end_index += 1
         
         # check for complete orfs
         while start_index < len(start_positions) and end_index < len(end_positions):
@@ -93,8 +90,6 @@ class Translator:
             else:
                 orfs.append((start_positions[start_index], end_positions[end_index]+1, 'complete')) # once satisfied, extract this orf
                 cur_pos = end_positions[end_index] # mark end position
-                start_index += 1 
-                end_index += 1
         
         # check for 3' partial last -> still have start positions left (before end of sequence)
         if three_prime_partial and start_index < len(start_positions):
@@ -102,11 +97,14 @@ class Translator:
                 
         return protein_sequence, orfs
 
-
 def standardize_sequence(sequence):
     '''Ensures that given sequence is valid DNA, upper case, and multiple of 3'''
     dna = sequence.upper().strip()
-    dna = dna[:-(len(dna) % 3)] # truncates to last full codon
+    # truncate to last full codon
+    length = len(dna)
+    if length < 3:
+        return ""
+    dna = dna[:length-(length % 3)]
     dna = dna.replace('U', 'T') # replaces U with T in case of RNA
     return dna
 
@@ -148,7 +146,6 @@ def main():
     parser = argparse.ArgumentParser(description='DNA to Protein Translator')
     parser.add_argument('sequence', type=str, help='DNA sequence to translate')
     parser.add_argument('-t', '--table', type=int, default=1, help='Translation table to use')
-    parser.add_argument('-r', '--rna', action='store_true', help='Use RNA instead of DNA')
     parser.add_argument('-3', '--three-letter', action='store_true', help='Use three-letter amino acid codes')
     args = parser.parse_args()
 
