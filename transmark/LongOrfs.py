@@ -145,11 +145,11 @@ def find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only):
 
 def calculate_start_end(orf, length, strand, frame):
     '''Calculates start and end positions of ORF in genomic coordinates'''
-    start = orf[0] * 3 + frame - 1
+    start = orf[0] * 3 + frame
     end = orf[1] * 3 + frame - 1
     if strand == '-':
-        start, end = length - start, length - end
-    return start+1, end
+        start, end = length - start + 1, length - end + 1
+    return start, end
     
 def main():
     # suppress annoying warnings
