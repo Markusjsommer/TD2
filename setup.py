@@ -24,8 +24,6 @@ setup(
                       "typing-extensions>=4.9.0",
                       "tqdm>=4.66.1",
                       "scipy>=1.10.1",
-                      "biopython>=1.83",
-                      "numpy>=1.24.4",
                       "pandas>=2.0.3",
                       "wheel"],
     extras_require={
