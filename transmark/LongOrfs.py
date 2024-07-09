@@ -1,4 +1,5 @@
 import os
+import json
 import sys
 import gzip
 # import copy
@@ -114,30 +115,44 @@ def complement(seq):
     seq_complement = seq.translate(complement_table)
     return seq_complement
     
-def find_ORFs(seq, translator, min_len_aa, strand_specific):
+def find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only):
     '''Finds all open reading frames above minimum length threshold'''
     
     all_orf_list = []
     
+    # determine whether to allow partial ORFs
+    if complete_orfs_only:
+        five_prime_partial = False
+        three_prime_partial = False
+    else:
+        five_prime_partial = True
+        three_prime_partial = True
+    
     # find orfs in forward frames
     for i in range(3):
-        sequence, orfs = translator.find_orfs(seq[i:])
-        if len(sequence) < min_len_aa:
-            continue
-        all_orf_list.append((f'+{i+1}', sequence, orfs))
+        sequence, orfs = translator.find_orfs(seq[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial)
+        filtered_orfs = [orf for orf in orfs if orf[1] - orf[0] >= min_len_aa]
+        all_orf_list.append((sequence, filtered_orfs, '+', i+1))
             
     # do reverse strand if not strand-specific
     if not strand_specific:
         for i in range(3):
-            sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:])
-            if len(sequence) < min_len_aa:
-                continue
-            all_orf_list.append((f'-{i+1}', sequence, orfs))
+            sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial)
+            filtered_orfs = [orf for orf in orfs if orf[1] - orf[0] >= min_len_aa]
+            all_orf_list.append((sequence, filtered_orfs, '-', i+1))
     
     return all_orf_list
+
+def calculate_start_end(orf, length, strand, frame):
+    '''Calculates start and end positions of ORF in genomic coordinates'''
+    start = orf[0] * 3 + frame - 1
+    end = orf[1] * 3 + frame - 1
+    if strand == '-':
+        start, end = length - start, length - end
+    return start+1, end
     
 def main():
-    # supress annoying warnings
+    # suppress annoying warnings
     warnings.filterwarnings('ignore')
     print("Python", sys.version, "\n")
     
@@ -180,10 +195,10 @@ def main():
     p_cds = os.path.join(working_dir, "longest_orfs.cds")
     p_cds_top500 = os.path.join(working_dir, "longest_orfs.cds.top_500_longest")
     
-    f_pep = open(p_pep, "wt")
-    f_gff3 = open(p_gff3, "wt")
-    f_cds = open(p_cds, "wt")
-    f_cds_top500 = open(p_cds_top500, "wt")
+    # f_pep = open(p_pep, "wt")
+    # f_gff3 = open(p_gff3, "wt")
+    # f_cds = open(p_cds, "wt")
+    # f_cds_top500 = open(p_cds_top500, "wt")
     
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
     
@@ -195,28 +210,57 @@ def main():
     description_list, seq_list = load_fasta(args.transcripts)
     
     # create translator object
-    if complete_orfs_only:
-        translator = Translator(table=genetic_code, m_start=m_start)
-    else:
-        translator = Translator(table=genetic_code, m_start=m_start, three_prime_partials=True, five_prime_partials=True)
+    translator = Translator(table=genetic_code, m_start=m_start)
         
-    for seq in seq_list:
-        seq_ORF_list = find_ORFs(seq, translator, min_len_aa, strand_specific)
+    # find all ORFs
+    seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
+    with open(os.path.join(working_dir, "seq_ORF_list.json"), "wt") as f:
+        json.dump(seq_ORF_list, f, indent=2)
+        print('number of orfs found:', sum([len(seq_ORF_list[i][2]) for i in range(len(seq_ORF_list))]))
+    
+    
+    print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
+    
+    # TODO: Step 2 if annotation file provided -> use ORFanage to find ORFs
+    
+    
+    print(f"Step 3: Writing results to file", flush=True)
+    start_time = time.time()
     
     with open(p_pep, "wt") as f:
         # TODO
-        pass
+        if genetic_code == 1 and m_start:
+            gc_name = 'universal'
+        else:
+            gc_name = f'ncbi_table_{genetic_code}'
+            
+        for entries, desc, gene_seq in zip(seq_ORF_list, description_list, seq_list):
+            for entry in entries:
+                prot_seq = entry[0]
+                orfs = entry[1]
+                strand = entry[2]
+                frame = entry[3]
+                # name = desc.split()[0]
+                name = desc
+                count = 1
+                for orf in orfs:
+                    start, end = calculate_start_end(orf, len(gene_seq), strand, frame)
+                    orf_seq = prot_seq[orf[0]:orf[1]]
+                    header = f'>{name}.p{count} type:{orf[2]} gc:{gc_name} {name}:{start}-{end}({strand})'
+                    f.write(f'{header}\n{orf_seq}\n')
+                    count += 1
+        
     with open(p_gff3, "wt") as f:
         # TODO
         pass
-        
+    with open(p_cds, "wt") as f:
+        # TODO
+        pass
     with open(p_cds_top500, "wt") as f:
         # TODO
         pass
     
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
-    
-    # TODO: Step 2 if annotation file provided -> use ORFanage to find ORFs
 
 if __name__ == "__main__":
     main()
