@@ -71,8 +71,10 @@ class Translator:
             if five_prime_partial and end_positions:
                 orfs.append((0, end_positions[0]+1, '5prime_partial'))
             return protein_sequence, orfs
-        if not end_positions:
-            if three_prime_partial and start_positions:
+        elif not end_positions:
+            if five_prime_partial and three_prime_partial and start_positions[0] != 0:
+                orfs.append((0, len(protein_sequence), 'internal'))
+            elif three_prime_partial and start_positions:
                 orfs.append((start_positions[0], len(protein_sequence), '3prime_partial'))
             return protein_sequence, orfs
         
