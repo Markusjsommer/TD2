@@ -8,7 +8,6 @@
     [] translate in 6 frames and store all orfs above threshold
     [] multithread ? 
 [] integrate psauron for scoring orfs
-[] integrate mmseqs2 for clustering orfs
 [] implement debug in verbose mode in stderr
 
 # Notes
@@ -21,7 +20,7 @@
     - predict likely coding regions based on homology
 
 - replicating output
-    - what is th difference in output for prokaryote vs eukaryote
+    - what is the difference in output for prokaryote vs eukaryote
     
 
 

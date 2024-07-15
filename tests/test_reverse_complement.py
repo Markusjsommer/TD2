@@ -1,4 +1,4 @@
-from app.transmark import reverse_complement
+from TD2.LongOrfs import reverse_complement
 
 def test_reverse_complement_default():
     revcomp = reverse_complement("GATACA")

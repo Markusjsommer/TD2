@@ -4,7 +4,7 @@ with open("README.md", "r") as f:
     long_description = f.read()
     
 setup(
-    name="transmark",
+    name="TD2",
     version="0.1.0",
     description="A tool to find protein coding ORFs",
     packages=find_packages(),
@@ -32,8 +32,8 @@ setup(
     python_requires=">=3.8",
     entry_points={
         'console_scripts': [
-            'transmark.LongOrfs = transmark.LongOrfs:main',
-            'transmark.Predict = transmark.Predict:main',
+            'TD2.LongOrfs = TD2.LongOrfs:main',
+            'TD2.Predict = TD2.Predict:main',
         ],
     },
 

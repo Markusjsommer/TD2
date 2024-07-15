@@ -4,7 +4,7 @@ A tool to find protein coding ORFs
 NOTE: this readme is heavily based on the TransDecoder wiki: https://github.com/TransDecoder/TransDecoder/wiki
 
 
-Transmark identifies likely coding sequences based on the following criteria:
+TD2 identifies likely coding sequences based on the following criteria:
 
 - a minimum length open reading frame (ORF) is found in a transcript sequence
 - a likelihood score computed by PSAURON is > 0.5
