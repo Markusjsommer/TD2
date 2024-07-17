@@ -1,5 +1,4 @@
 import os
-import json
 import sys
 import gzip
 # import copy
@@ -182,8 +181,6 @@ def main():
     
     verbose = args.verbose # TODO: work on this at the end
 
-    
-    
     # TODO: check args
     
     # create working directory
@@ -199,11 +196,6 @@ def main():
     p_cds = os.path.join(working_dir, "longest_orfs.cds")
     p_cds_top500 = os.path.join(working_dir, "longest_orfs.cds.top_500_longest")
     
-    # f_pep = open(p_pep, "wt")
-    # f_gff3 = open(p_gff3, "wt")
-    # f_cds = open(p_cds, "wt")
-    # f_cds_top500 = open(p_cds_top500, "wt")
-    
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
     
     
@@ -218,18 +210,12 @@ def main():
         
     # find all ORFs
     seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
-    # with open(os.path.join(working_dir, "seq_ORF_list.json"), "wt") as f:
-    #     json.dump(seq_ORF_list, f, indent=2)
-    #     print('number of orfs found:', sum([len(seq_ORF_list[i][2]) for i in range(len(seq_ORF_list))]))
-    
+     
     
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
     
-    # TODO: Step 2 if annotation file provided -> use ORFanage to find ORFs
-    
-    
-    print(f"Step 3: Writing results to file", flush=True)
-    start_time = time.time()
+    print(f"Step 2: Writing results to file", flush=True)
+    start_time = time.time() 
     
     with open(p_pep, "wt") as f:
         # TODO
@@ -238,8 +224,7 @@ def main():
         else:
             gc_name = f'ncbi_table_{genetic_code}'
             
-        # print(len(seq_ORF_list), len(description_list), len(seq_list))
-            
+  
         for entries, desc, gene_seq in zip(seq_ORF_list, description_list, seq_list):
             count = 1
             for entry in entries:
