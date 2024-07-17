@@ -1,20 +1,25 @@
 import os
 import sys
 import gzip
-import copy
+# import copy
 import time
-import pandas
-import pickle
+# import pandas
+# import pickle
 import argparse
 import warnings
-import numpy as np
-from tqdm.auto import tqdm
+# import numpy as np
+# from tqdm.auto import tqdm
 
-from multiprocessing import Pool
+# from multiprocessing import Pool
 
-from Bio import SeqIO
-from Bio.Seq import Seq
+# from Bio import SeqIO
+# from Bio.Seq import Seq
 from transmark.translator import Translator
+
+### INIT GLOBALS ###
+complement_map = ('ACTGNactgnYRWSKMDVHBXyrwskmdvhbx',
+                  'TGACNtgacnRYWSMKHBDVXrywsmkhbdvx')
+complement_table = str.maketrans(complement_map[0], complement_map[1])
 
 
 def get_args():
@@ -57,11 +62,11 @@ def load_fasta(filepath):
     seq_list = []
     for name, seq, qual in readfq(f):
         description_list.append(name)
-        seq_list.append(seq.upper())
+        seq_list.append(seq)
     
     # convert all str to biopython seqs
     # TODO measure performance hit of this
-    seq_list = [Seq(s) for s in seq_list]
+    # seq_list = [Seq(s) for s in seq_list]
     
     f.close()
     print("Loaded...\n")
@@ -101,46 +106,61 @@ def readfq(fp):
     
 def reverse_complement(seq):
     '''Reverse complements DNA seq, returns N for all non-ATGC chars'''
-    complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}
-    seq_reverse_complement = ''.join([complement.get(base, 'N') for base in seq[::-1]])
-    return seq_reverse_complement
+    seq_complement = seq.translate(complement_table)
+    return seq_complement[::-1]
 
 def complement(seq):
     '''Complements DNA seq, returns N for all non-ATGC chars'''
-    complement = {'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G'}
-    seq_complement = ''.join([complement.get(base, 'N') for base in seq])
+    seq_complement = seq.translate(complement_table)
     return seq_complement
     
-def find_probable_ORFs(seq, min_len_aa, strand_specific, genetic_code):
-    '''Finds all open reading frames above minimum length threshold'''
-    
-    pass
-    
-def find_complete_ORFs(seq, translator, min_len_aa, strand_specific):
+def find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only):
     '''Finds all open reading frames above minimum length threshold'''
     
     all_orf_list = []
     
+    # determine whether to allow partial ORFs
+    if complete_orfs_only:
+        five_prime_partial = False
+        three_prime_partial = False
+    else:
+        five_prime_partial = True
+        three_prime_partial = True
+    
     # find orfs in forward frames
     for i in range(3):
-        sequence, orfs = translator.find_orfs(seq[i:])
-        if len(sequence) < min_len_aa:
-            continue
-        all_orf_list.append((f'+{i+1}', sequence, orfs))
+        # print(seq[i:])
+        sequence, orfs = translator.find_orfs(seq[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial)
+        # print(sequence, orfs)
+        filtered_orfs = [orf for orf in orfs if orf[1] - orf[0] >= min_len_aa]
+        all_orf_list.append((sequence, filtered_orfs, '+', i+1))
             
-    # do reverse strand if not strand-specific 
+    # do reverse strand if not strand-specific
     if not strand_specific:
         for i in range(3):
-            sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:])
-            if len(sequence) < min_len_aa:
-                continue
-            all_orf_list.append((f'-{i+1}', sequence, orfs))
+            # print(reverse_complement(seq)[i:])
+            sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial)
+            # print(sequence, orfs)
+            filtered_orfs = [orf for orf in orfs if orf[1] - orf[0] >= min_len_aa]
+            all_orf_list.append((sequence, filtered_orfs, '-', i+1))
     
     return all_orf_list
+
+def calculate_start_end(orf, length, strand, frame):
+    '''Calculates start and end positions of ORF in genomic coordinates'''
+    start = orf[0] * 3 + frame
+    end = orf[1] * 3 + frame - 1
+    if strand == '-':
+        start, end = length - start + 1, length - end + 1
+    return start, end
     
 def main():
-    # supress annoying warnings
+    # suppress annoying warnings
     warnings.filterwarnings('ignore')
+    print("Python", sys.version, "\n")
+    
+    print(f"Initializing args...", flush=True)
+    start_time = time.time()
     
     # parse command line arguments
     args = get_args()
@@ -159,25 +179,10 @@ def main():
     else:
         use_orfanage = False
     
-    verbose = args.verbose # TODO work on this at the end
+    verbose = args.verbose # TODO: work on this at the end
 
-    print("Python", sys.version, "\n")
+    # TODO: check args
     
-    # TODO check args
-    
-    # load FASTA
-    description_list, seq_list = load_fasta(args.transcripts)
-    
-    # find all possible ORFs
-    print(f"Step 1: Finding all ORFs with protein length >= {min_len_aa}", flush=True)
-    start_time = time.time()
-    
-    # create translator object
-    translator = Translator(table=genetic_code, m_start=m_start)
-        
-    for seq in seq_list:
-        seq_ORF_list = find_complete_ORFs(seq, translator, min_len_aa, strand_specific)
-        
     # create working directory
     working_base = "transcripts.transmark_dir"
     working_dir = os.path.join(output_dir, working_base)
@@ -185,15 +190,56 @@ def main():
     if not os.path.exists(working_dir):
         os.makedirs(working_dir)
     
-    # write output files
+    # define output filepaths
     p_pep = os.path.join(working_dir, "longest_orfs.pep")
     p_gff3 = os.path.join(working_dir, "longest_orfs.gff3")
     p_cds = os.path.join(working_dir, "longest_orfs.cds")
     p_cds_top500 = os.path.join(working_dir, "longest_orfs.cds.top_500_longest")
     
+    print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
+    
+    
+    print(f"Step 1: Finding all ORFs with protein length >= {min_len_aa}", flush=True)
+    start_time = time.time()
+    
+    # load FASTA
+    description_list, seq_list = load_fasta(args.transcripts)
+    
+    # create translator object
+    translator = Translator(table=genetic_code, m_start=m_start)
+        
+    # find all ORFs
+    seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
+     
+    
+    print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
+    
+    print(f"Step 2: Writing results to file", flush=True)
+    start_time = time.time() 
+    
     with open(p_pep, "wt") as f:
         # TODO
-        pass
+        if genetic_code == 1 and m_start:
+            gc_name = 'universal'
+        else:
+            gc_name = f'ncbi_table_{genetic_code}'
+            
+        for entries, desc, gene_seq in zip(seq_ORF_list, description_list, seq_list):
+            count = 1
+            for entry in entries:
+                prot_seq = entry[0]
+                orfs = entry[1]
+                strand = entry[2]
+                frame = entry[3]
+                name = desc
+                # print(name, orfs, len(gene_seq), strand, frame)
+                for orf in orfs:
+                    start, end = calculate_start_end(orf, len(gene_seq), strand, frame)
+                    orf_seq = prot_seq[orf[0]:orf[1]]
+                    header = f'>{name}.p{count} type:{orf[2]} gc:{gc_name} {name}:{start}-{end}({strand})'
+                    f.write(f'{header}\n{orf_seq}\n')
+                    count += 1
+        
     with open(p_gff3, "wt") as f:
         # TODO
         pass
@@ -204,7 +250,7 @@ def main():
         # TODO
         pass
     
-    print(f"Done. {time.time() - start_time:.2f} seconds", flush=True)
+    print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
 
 if __name__ == "__main__":
     main()

@@ -54,11 +54,11 @@ class Translator:
             translations.append((f'{strand}{frame+1}', translated_sequence, initiator_positions, end_positions))
         return translations
     
-    def find_orfs(self, sequence, five_prime_partials=False, three_prime_partials=False):
+    def find_orfs(self, sequence, five_prime_partial=False, three_prime_partial=False):
         '''
-        Find all open reading frames in the given sequence
+        Find complete open reading frames in the given sequence
         Parameters: sequence (str): DNA/RNA sequence to analyze
-        Returns: str, List[Tuple[int, int]]: Translated protein sequence and list of ORFs (start, end) positions
+        Returns: str, List[Tuple[int, int]]: Translated protein sequence and list of ORFs (start, end) [0-indexed, 1-indexed] positions
         '''
         protein_sequence, start_positions, end_positions = self.translate(sequence)
         orfs = []
@@ -66,29 +66,49 @@ class Translator:
         start_index = 0
         end_index = 0
         
-        if five_prime_partials:
-            end_positions = end_positions + [len(protein_sequence)]
-        if three_prime_partials:
-            start_positions = [0] + start_positions
-               
+        # check edge cases where there are no start or no end positions
+        if not start_positions:
+            if five_prime_partial and end_positions:
+                orfs.append((0, end_positions[0]+1, '5prime_partial'))
+            elif five_prime_partial and three_prime_partial and not end_positions:
+                orfs.append((0, len(protein_sequence), 'internal'))                
+            return protein_sequence, orfs
+        elif not end_positions:
+            if five_prime_partial and three_prime_partial and start_positions[0] != 0:
+                orfs.append((0, len(protein_sequence), 'internal'))
+            elif three_prime_partial and start_positions:
+                orfs.append((start_positions[0], len(protein_sequence), '3prime_partial'))
+            return protein_sequence, orfs
+        
+        # check for 5' partial first -> first start is not at 0
+        if five_prime_partial and start_positions[0] > 0:
+            orfs.append((0, end_positions[0]+1, '5prime_partial'))
+            cur_pos = end_positions[end_index] # next orf will start after here
+        
+        # check for complete orfs
         while start_index < len(start_positions) and end_index < len(end_positions):
-            if start_positions[start_index] <= cur_pos:
+            if start_positions[start_index] <= cur_pos: # move start after the previous end
                 start_index += 1
-            elif end_positions[end_index] <= start_positions[start_index]:
+            elif end_positions[end_index] <= start_positions[start_index]: # move current end after the current start
                 end_index += 1
             else:
-                orfs.append((start_positions[start_index], end_positions[end_index]))
-                cur_pos = end_positions[end_index]
-                start_index += 1
-                end_index += 1
-            
+                orfs.append((start_positions[start_index], end_positions[end_index]+1, 'complete')) # once satisfied, extract this orf
+                cur_pos = end_positions[end_index] # mark end position
+        
+        # check for 3' partial last -> still have start positions left (before end of sequence)
+        if three_prime_partial and start_index < len(start_positions):
+            orfs.append((start_positions[start_index], len(protein_sequence), '3prime_partial'))      
+                
         return protein_sequence, orfs
-
 
 def standardize_sequence(sequence):
     '''Ensures that given sequence is valid DNA, upper case, and multiple of 3'''
     dna = sequence.upper().strip()
-    dna = dna[:-(len(dna) % 3)] # truncates to last full codon
+    # truncate to last full codon
+    length = len(dna)
+    if length < 3:
+        return ""
+    dna = dna[:length-(length % 3)]
     dna = dna.replace('U', 'T') # replaces U with T in case of RNA
     return dna
 
