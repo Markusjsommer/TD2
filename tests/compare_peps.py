@@ -40,7 +40,7 @@ def decode(diff1, diff2):
     
 def investigate(headers1, headers2, limit):
     
-    seqs = Fasta('./tests//data/MANE_tests_rna.fna')
+    seqs = Fasta('./tests/data/MANE_tests_rna.fna')
     translator = Translator(table=1, m_start=True)
     
     random.shuffle(headers1)
