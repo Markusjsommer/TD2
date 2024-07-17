@@ -5,3 +5,6 @@ dist/
 *.pyc
 data/
 results/
+*.log
+*.diff
+profile*
