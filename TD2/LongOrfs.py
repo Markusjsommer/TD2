@@ -199,7 +199,20 @@ def main():
     #     use_orfanage = False
 
     # TODO: check args
-
+    
+    # create working directory
+    working_base = "transcripts.transmark_dir"
+    working_dir = os.path.join(output_dir, working_base)
+    print("Writing to", working_dir, flush=True)
+    if not os.path.exists(working_dir):
+        os.makedirs(working_dir)
+    
+    # define output filepaths
+    p_pep = os.path.join(working_dir, "longest_orfs.pep")
+    p_gff3 = os.path.join(working_dir, "longest_orfs.gff3")
+    p_cds = os.path.join(working_dir, "longest_orfs.cds")
+    p_cds_top500 = os.path.join(working_dir, "longest_orfs.cds.top_500_longest")
+    
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
     
     
@@ -214,6 +227,7 @@ def main():
         
     # find all ORFs
     seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
+     
     
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
 
