@@ -17,5 +17,19 @@ TransDecoder.Predict -h
 * memory_output -> ms_print massif.out.<pid>
 * time -> /usr/bin/time -v [program]
 
-/usr/bin/time -v TransDecoder.LongOrfs -t data/MANE.GRCh38.v1.3.refseq_rna.fna -O results/TD_benchmark/time/ > results/TD_benchmark/time.log
-valgrind --tool=massif TransDecoder.LongOrfs -t data/MANE.GRCh38.v1.3.refseq_rna.fna -O results/TD_benchmark/memory/ > results/TD_benchmark/memory.log
+** valgrind massif doesn't seem to generate a massif file ??? need to rely on time data
+
+## TD
+conda activate td
+/usr/bin/time -v TransDecoder.LongOrfs -t data/MANE.GRCh38.v1.3.refseq_rna.fna -O results/TD_benchmark/time/ > results/TD_benchmark/time.log 2>&1
+valgrind --tool=massif --massif-out-file=results/TD_benchmark/massif.out TransDecoder.LongOrfs -t data/MANE.GRCh38.v1.3.refseq_rna.fna -O results/TD_benchmark/memory/ > results/TD_benchmark/memory.log 2>&1
+ms_print massif.out
+
+## TD2
+conda activate td2
+/usr/bin/time -v TD2.LongOrfs -t data/MANE.GRCh38.v1.3.refseq_rna.fna -O results/TD2_benchmark/time/ --m-start > results/TD2_benchmark/time.log 2>&1
+valgrind --tool=massif --massif-out-file=results/TD2_benchmark/massif.out TD2.LongOrfs -t data/MANE.GRCh38.v1.3.refseq_rna.fna -O results/TD2_benchmark/memory/ > results/TD2_benchmark/memory.log 2>&1
+ms_print massif.out
+
+## compare outputs
+python ./tests/compare_peps.py ./results/TD_benchmark/time/longest_orfs.pep ./results/TD2_benchmark/time/transcripts.transmark_dir/longest_orfs.pep --diff --matched --internal

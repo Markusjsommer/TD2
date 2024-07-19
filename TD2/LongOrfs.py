@@ -6,12 +6,24 @@ import argparse
 import warnings
 from TD2.translator import Translator
 
+####################
 ### INIT GLOBALS ###
+####################
+
 complement_map = ('ACTGNactgnYRWSKMDVHBXyrwskmdvhbx',
                   'TGACNtgacnRYWSMKHBDVXrywsmkhbdvx')
 complement_table = str.maketrans(complement_map[0], complement_map[1])
 
+#############
+## HELPERS ##
+#############
 
+def int_or_str(value):
+    try:
+        return int(value)
+    except ValueError:
+        return value
+    
 def get_args():
     parser = argparse.ArgumentParser()
     
@@ -20,11 +32,11 @@ def get_args():
     required.add_argument("-t", dest="transcripts",  type=str, required=True, help="REQUIRED path to transcripts.fasta")
     
     # optional
-    parser.add_argument("-O", "--output_dir", dest="output_dir", type=str, required=False, help="path to output results, default=./", default="./")
+    parser.add_argument("-O", "--output_dir", dest="output_dir", type=str, required=False, help="path to output results, default=./transcripts.transmark_dir", default="./transcripts.transmark_dir")
     parser.add_argument("-m", "--min_length", dest="minimum_length", type=int, required=False, help="minimum protein length, default=100", default=100)
     parser.add_argument("-S", "--strand_specific", dest="strand_specific", action='store_true', required=False, help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
-    parser.add_argument("-G", "--genetic_code", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1", default=1)
-    parser.add_argument("-c", dest="complete_orfs_only", action='store_true', required=False, help="set -c to yield only complete ORFs (peps start with Met (M), end with stop (*)), default=False", default=False)
+    parser.add_argument("-G", "--genetic_code", dest="genetic_code", type=int_or_str, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=universal", default=1)
+    parser.add_argument("-c", "--complete_orfs", dest="complete_orfs_only", action='store_true', required=False, help="set -c to yield only complete ORFs (peps start with Met (M), end with stop (*)), default=False", default=False)
     
     
     parser.add_argument("-@", "--threads", dest="threads", type=int, help="number of threads to use, default=1", default=1)
@@ -42,7 +54,7 @@ def get_args():
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
     return args
-    
+
 def load_fasta(filepath):
     '''Loads a FASTA file and returns a list of descriptions and a list of sequences'''
     print("Loading transcripts at", filepath)
@@ -102,7 +114,7 @@ def complement(seq):
     '''Complements DNA seq, returns N for all non-ATGC chars'''
     seq_complement = seq.translate(complement_table)
     return seq_complement
-    
+
 def find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only):
     '''Finds all open reading frames above minimum length threshold'''
     
@@ -142,6 +154,12 @@ def calculate_start_end(orf, length, strand, frame):
     if strand == '-':
         start, end = length - start + 1, length - end + 1
     return start, end
+
+def get_genetic_code(genetic_code):
+
+############
+## DRIVER ##
+############
     
 def main():
     # suppress annoying warnings
@@ -158,33 +176,33 @@ def main():
     complete_orfs_only = args.complete_orfs_only
     genetic_code = args.genetic_code
     m_start = args.m_start
-    
-    # use absolute path of output
-    output_dir = os.path.abspath(args.output_dir)
-    
-    annotation_file = args.annotation_file
-    if annotation_file:
-        use_orfanage = True
-    else:
-        use_orfanage = False
-    
     verbose = args.verbose # TODO: work on this at the end -> tqdm stuff
+    
+    # create working dir and define output filepaths
+    output_dir = os.path.abspath(args.output_dir)
+
+    p_pep = os.path.join(output_dir, "longest_orfs.pep")
+    p_gff3 = os.path.join(output_dir, "longest_orfs.gff3")
+    p_cds = os.path.join(output_dir, "longest_orfs.cds")
+    p_cds_top500 = os.path.join(output_dir, "longest_orfs.cds.top_500_longest")
+
+    print("Writing to", output_dir, flush=True)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    else:
+        if all(os.path.exists(path) for path in [p_pep, p_gff3, p_cds, p_cds_top500]):
+            print("Output files already exist. Exiting...", flush=True)
+            sys.exit(0)
+        
+    
+    # annotation_file = args.annotation_file
+    # if annotation_file:
+    #     use_orfanage = True
+    # else:
+    #     use_orfanage = False
 
     # TODO: check args
-    
-    # create working directory
-    working_base = "transcripts.transmark_dir"
-    working_dir = os.path.join(output_dir, working_base)
-    print("Writing to", working_dir, flush=True)
-    if not os.path.exists(working_dir):
-        os.makedirs(working_dir)
-    
-    # define output filepaths
-    p_pep = os.path.join(working_dir, "longest_orfs.pep")
-    p_gff3 = os.path.join(working_dir, "longest_orfs.gff3")
-    p_cds = os.path.join(working_dir, "longest_orfs.cds")
-    p_cds_top500 = os.path.join(working_dir, "longest_orfs.cds.top_500_longest")
-    
+
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
     
     
@@ -199,9 +217,9 @@ def main():
         
     # find all ORFs
     seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
-     
     
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
+
     
     print(f"Step 2: Writing results to file", flush=True)
     start_time = time.time() 
@@ -224,7 +242,7 @@ def main():
                 for orf in orfs:
                     start, end = calculate_start_end(orf, len(gene_seq), strand, frame)
                     orf_seq = prot_seq[orf[0]:orf[1]]
-                    header = f'>{name}.p{count} type:{orf[2]} gc:{gc_name} {name}:{start}-{end}({strand})'
+                    header = f'>{name}.p{count} type:{orf[2]} len:{len(orf_seq)} gc:{gc_name} {name}:{start}-{end}({strand})'
                     f.write(f'{header}\n{orf_seq}\n')
                     count += 1
         

@@ -81,7 +81,7 @@ def add_ambiguous_codons(data, verbose=False):
             amino_acids = {codon_to_amino_acid[codon] for codon in expanded_codons if codon in codon_to_amino_acid}
             
             # if all expanded codons map to the same amino acid, add to the dictionary
-            if len(amino_acids) == 1:
+            if len(amino_acids) == 1: 
                 ambiguous_translation_dict[ambiguous_codon] = amino_acids.pop()
         
         return ambiguous_translation_dict
@@ -91,6 +91,59 @@ def add_ambiguous_codons(data, verbose=False):
     data['codons'] = updated_data
 
     return data
+
+def generate_alternative_initiators(genetic_code_data, output_dir):
+    alternative_initiators = { # MANUALLY COMPILED
+        1: ['TTG', 'CTG'],
+        2: ['ATA', 'ATT', 'ATC', 'GTG'],
+        3: ['GTG'],
+        4: ['TTA', 'TTG', 'CTG', 'ATT', 'ATA', 'ATC', 'GTG'],
+        5: ['TTG', 'ATT', 'ATC', 'GTG', 'ATA'],
+        6: [],
+        9: [],
+        10: [],
+        11: ['TTG', 'CTG', 'ATT', 'ATC', 'ATA', 'GTG'],
+        12: ['CTG'],
+        13: ['ATA', 'GTG', 'TTG'],
+        14: [],
+        15: [],
+        16: [],
+        21: [],
+        22: [],
+        23: [],
+        24: ['TTG', 'CTG'],
+        25: [],
+        26: ['GTG', 'TTG'],  # These are not part of NCBI table yet
+        27: [],
+        28: [],
+        29: [],
+        30: [],
+        31: [],
+        33: []
+    }
+
+    # Process each genetic code table
+    for table_number, data in genetic_code_data.items():
+        complete_initiators = data.get('initiators', [])
+        alt_initiators = alternative_initiators.get(int(table_number), [])
+        
+        # Check if the table number exists in alternative_initiators
+        if int(table_number) not in alternative_initiators:
+            print(f"Warning: Table number {table_number} does not exist in alternative codons. Please update the NCBI table versions.")
+            continue
+        
+        # Add alternative initiators to the list if they are not already present
+        for alt in alt_initiators:
+            if alt not in complete_initiators:
+                print(f"Warning: Alternative initiator {alt} does not exist in complete initiators for table {table_number}. Adding...")
+                complete_initiators.append(alt)
+
+        # Remove alternative initiators from complete_initiators
+        standard_initiators = [initiator for initiator in complete_initiators if initiator not in alt_initiators]
+
+        # Save the updated table
+        save_table(output_dir, table_number, {'initiators': sorted(standard_initiators), 'complete_initiators': sorted(complete_initiators), 'codons': data['codons']})
+  
 
 def save_table(directory, table_number, data):
     """Save a SINGLE translation table to JSON file."""
@@ -135,6 +188,12 @@ def print_table(table_number, data, columns=4):
     print("Initiator Codons:")
     print(", ".join(sorted(data['initiators'])))
     print()
+
+    # print alternative initiators (if they exist)
+    if 'complete_initiators' in data:
+        print("Alternative Initiator Codons:")
+        print(", ".join(sorted(data['complete_initiators'])))
+        print()
     
     # print codon to amino acid mapping in grid format
     print("Codon to Amino Acid Mapping:")
@@ -193,10 +252,15 @@ if __name__ == "__main__":
     parser.add_argument('-o', type=str, help="Directory where the JSON files will be saved.", default='./tables')
     parser.add_argument('-v', action='store_true', help="Enable verbose output.")
     parser.add_argument('-t', action='store_true', help="Use three-letter amino acid codes.")
+    parser.add_argument('--alt', action='store_true', help="Generate alternative codons.")
     args = parser.parse_args()
 
     # extract translation tables
     genetic_codes(args.f, args.o, args.v, args.t)
+
+    # generate alternative initiators
+    if args.alt:
+        generate_alternative_initiators(load_tables(args.o), args.o)
 
     # pretty print example tables
     example_tables = [1]
