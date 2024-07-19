@@ -48,9 +48,8 @@ def get_args():
     parser.add_argument("-A", dest="annotation_file", type=str, required=False, help="path to annotation file transcripts.gff, default=None", default=None)
     
     parser.add_argument("-v", "--verbose", action='store_true', help="set -v for verbose output with progress bars, default=False", default=False)
-    
-    # TODO refactor m-start to alt-start and reverse logic, also test/copy default behavior of transdecoder with regard to alternate starts (alternate starts technically result in m in the protein)
-    parser.add_argument("--m-start", dest="m_start", action='store_true', required=False, help="use only ATG as initiator codon, default=False", default=False)
+
+    parser.add_argument("--alt-start", dest="alt_start", action='store_true', required=False, help="include alternative initiator codons from provided table, default=False", default=False)
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
     return args
@@ -155,8 +154,6 @@ def calculate_start_end(orf, length, strand, frame):
         start, end = length - start + 1, length - end + 1
     return start, end
 
-def get_genetic_code(genetic_code):
-
 ############
 ## DRIVER ##
 ############
@@ -175,7 +172,7 @@ def main():
     strand_specific = args.strand_specific
     complete_orfs_only = args.complete_orfs_only
     genetic_code = args.genetic_code
-    m_start = args.m_start
+    alt_start = args.alt_start
     verbose = args.verbose # TODO: work on this at the end -> tqdm stuff
     
     # create working dir and define output filepaths
@@ -213,7 +210,7 @@ def main():
     description_list, seq_list = load_fasta(args.transcripts)
     
     # create translator object
-    translator = Translator(table=genetic_code, m_start=m_start)
+    translator = Translator(table=genetic_code, alt_start=alt_start)
         
     # find all ORFs
     seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
@@ -226,7 +223,7 @@ def main():
     
     with open(p_pep, "wt") as f:
         
-        if genetic_code == 1 and m_start:
+        if genetic_code == 1 and not alt_start:
             gc_name = 'universal'
         else:
             gc_name = f'ncbi_table_{genetic_code}'
