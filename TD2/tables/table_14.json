@@ -2,6 +2,9 @@
   "initiators": [
     "ATG"
   ],
+  "complete_initiators": [
+    "ATG"
+  ],
   "codons": {
     "AAA": "N",
     "AAC": "N",

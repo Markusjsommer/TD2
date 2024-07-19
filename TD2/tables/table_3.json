@@ -1,6 +1,10 @@
 {
   "initiators": [
     "ATA",
+    "ATG"
+  ],
+  "complete_initiators": [
+    "ATA",
     "ATG",
     "GTG"
   ],
