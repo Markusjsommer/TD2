@@ -2,6 +2,7 @@ import os
 import sys
 import gzip
 import time
+import heapq
 import argparse
 import warnings
 from TD2.translator import Translator
@@ -314,11 +315,13 @@ def main():
     print(f"Step 2: Writing results to file", flush=True)
     start_time = time.time() 
     
+    # write all peps and cds to file
     with open(p_pep, "wt") as f_pep, open(p_gff3, "wt") as f_gff3, open(p_cds, "wt") as f_cds:
         
         gc_name = get_genetic_code(genetic_code, alt_start)
+        longest_cds_heap = []
             
-        for frames, desc, gene_seq in zip(seq_ORF_list, description_list, seq_list):
+        for frames, name, gene_seq in zip(seq_ORF_list, description_list, seq_list):
             count = 1
             gene_len = len(gene_seq)
             for frame_info in frames:
@@ -326,7 +329,6 @@ def main():
                 orfs = frame_info[1]
                 strand = frame_info[2]
                 frame = frame_info[3]
-                name = desc
                 
                 for orf in orfs:
                     
@@ -334,22 +336,32 @@ def main():
                     orf_prot_seq = prot_seq[orf[0]:orf[1]]
                     orf_gene_seq = gene_seq[start-1:end] if strand == '+' else reverse_complement(gene_seq[end-1:start])
                     orf_prot_len = len(orf_prot_seq)
-                    
                     orf_type = orf[2]
 
+                    # write pep file
                     pep_header = f'>{name}.p{count} type:{orf_type} len:{orf_prot_len} gc:{gc_name} {name}:{start}-{end}({strand})'
                     f_pep.write(f'{pep_header}\n{orf_prot_seq}\n')
+
+                    # write cds file
                     cds_header = f'>{name}.p{count} type:{orf_type} len:{orf_prot_len} {name}:{start}-{end}({strand})'
                     f_cds.write(f'{cds_header}\n{orf_gene_seq}\n')
 
-                    write_gff_block(f_gff3, name, gene_len, orf_prot_len, start, end, strand, count, orf_type) # TODO
+                    # write gff file
+                    write_gff_block(f_gff3, name, gene_len, orf_prot_len, start, end, strand, count, orf_type)
+
+                    # keep track of the 500 longest cds
+                    cds_length = end - start + 1
+                    if len(longest_cds_heap) < 500:
+                        heapq.heappush(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
+                    else:
+                        heapq.heappushpop(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
 
                     count += 1
         
-
-    with open(p_cds_top500, "wt") as f:
-        # TODO
-        pass
+    # write longest cds in descending order
+    with open(p_cds_top500, "wt") as f_cds_top500:
+        for _, cds_header, orf_gene_seq in sorted(longest_cds_heap, reverse=True, key=lambda x: x[0]):
+            f_cds_top500.write(f'{cds_header}\n{orf_gene_seq}\n')
     
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
 
