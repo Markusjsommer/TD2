@@ -1,8 +1,9 @@
 #!/bin/bash
-# NOTE: td2 long orfs not done yet -> remove m-start needed and write rest of output files
+# conda activate td2
+# pip install .
 
 # Command to be executed
-COMMAND="/usr/bin/time -v TD2.LongOrfs -t data/MANE.GRCh38.v1.3.refseq_rna.fna -O results/TD2_benchmark/time/ --m-start > results/TD2_benchmark/time.log 2>&1"
+COMMAND="/usr/bin/time -v TD2.LongOrfs -t data/MANE.GRCh38.v1.3.refseq_rna.fna -O results/TD2_benchmark/time/ > results/TD2_benchmark/time.log 2>&1"
 
 # Number of times to run the command
 NUM_RUNS=10

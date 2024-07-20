@@ -1,4 +1,5 @@
 #!/bin/bash
+# conda activate td
 
 # Command to be executed
 COMMAND="/usr/bin/time -v TransDecoder.LongOrfs -t data/MANE.GRCh38.v1.3.refseq_rna.fna -O results/TD_benchmark/time/ > results/TD_benchmark/time.log 2>&1"
