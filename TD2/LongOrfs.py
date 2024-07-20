@@ -213,7 +213,7 @@ def write_gff_block(f_gff, gene_id, gene_length, prot_length, start, end, strand
             cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count}'
             three_UTR_line = f'{gene_id}\ttransdecoder\tthree_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
             five_UTR_line = f'{gene_id}\ttransdecoder\tfive_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
-        block = '\n'.join([gene_line, mrna_line, five_UTR_line, exon_line, cds_line, three_UTR_line]) + '\n'
+        block = '\n'.join([gene_line, mrna_line, five_UTR_line, exon_line, cds_line, three_UTR_line]) + '\n\n'
 
     elif orf_type == '5prime_partial':
         if strand == '+':
@@ -223,7 +223,7 @@ def write_gff_block(f_gff, gene_id, gene_length, prot_length, start, end, strand
             start, end = end, start
             cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true'
             three_UTR_line = f'{gene_id}\ttransdecoder\tthree_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
-        block = '\n'.join([gene_line, mrna_line, exon_line, cds_line, three_UTR_line]) + '\n'
+        block = '\n'.join([gene_line, mrna_line, exon_line, cds_line, three_UTR_line]) + '\n\n'
 
     elif orf_type == '3prime_partial':
         if strand == '+':
@@ -233,7 +233,7 @@ def write_gff_block(f_gff, gene_id, gene_length, prot_length, start, end, strand
             start, end = end, start
             cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};3_prime_partial=true'
             five_UTR_line = f'{gene_id}\ttransdecoder\tfive_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
-        block = '\n'.join([gene_line, mrna_line, five_UTR_line, exon_line, cds_line]) + '\n'
+        block = '\n'.join([gene_line, mrna_line, five_UTR_line, exon_line, cds_line]) + '\n\n'
         
     elif orf_type == 'internal':
         if strand == '+':
@@ -241,7 +241,7 @@ def write_gff_block(f_gff, gene_id, gene_length, prot_length, start, end, strand
         else:
             start, end = end, start
             cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true;3_prime_partial=true'        
-        block = '\n'.join([gene_line, mrna_line, exon_line, cds_line]) + '\n'
+        block = '\n'.join([gene_line, mrna_line, exon_line, cds_line]) + '\n\n'
 
     else:
         raise ValueError(f"Invalid ORF type: {orf_type}")

@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # conda activate td2
 # pip install .
 
