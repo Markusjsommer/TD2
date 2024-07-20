@@ -13,6 +13,34 @@ from TD2.translator import Translator
 complement_map = ('ACTGNactgnYRWSKMDVHBXyrwskmdvhbx',
                   'TGACNtgacnRYWSMKHBDVXrywsmkhbdvx')
 complement_table = str.maketrans(complement_map[0], complement_map[1])
+ncbi_table_mapping = {
+    1: "Universal",
+    2: "Mitochondrial-Vertebrates",
+    3: "Mitochondrial-Yeast",
+    4: "Mitochondrial-Protozoan",
+    5: "Mitochondrial-Invertebrates",
+    6: "Ciliate, Dasycladacean, Hexamita",
+    9: "Mitochondrial-Echinoderm and Mitochondrial-Flatworm",
+    10: "Mitochondrial-Ascidian",
+    11: "Mitochondrial-Scenedesmus_obliquus",
+    12: "Pachysolen_tannophilus",
+    13: "Mitochondrial-Chlorophycean",
+    14: "SR1_Gracilibacteria",
+    15: "Mitochondrial-Thraustochytrium",
+    16: "Mitochondrial-Trematode",
+    21: "Mitochondrial-Pterobranchia",
+    22: "Mitochondrial-Ctenophore",
+    23: "Mitochondrial-Mesodinium",
+    24: "Mitochondrial-Euplotid",
+    25: "Mitochondrial-Peritrich",
+    26: "Tetrahymena",
+    27: "Candida",
+    28: "Acetabularia",
+    29: "Mitochondrial-Spirochaete",
+    30: "Mitochondrial-Apicomplexa",
+    31: "Mitochondrial-Plasmodium",
+    33: "SR1_Gracilibacteria"
+}
 
 #############
 ## HELPERS ##
@@ -154,6 +182,27 @@ def calculate_start_end(orf, length, strand, frame):
         start, end = length - start + 1, length - end + 1
     return start, end
 
+def get_genetic_code(table_num, alt_start):
+    '''Returns the name of the genetic code based on NCBI table number'''
+    if alt_start:
+        return f'{ncbi_table_mapping[table_num]}_alt'.lower()
+    else:
+        return ncbi_table_mapping[table_num].lower()
+    
+
+def write_gff_block(f_gff, gene_id, desc, start, end, strand, orf_type):
+    '''
+    gene -> mRNA -> exon -> CDS (5'UTR, 3'UTR)
+    gene_id\ttransdecoder\tcomponent\tstart\tend\t.\tstrand\t.\tattributes
+    attributes:
+        - gene ID=GENE.gene_id~~ORF_ID;Name=ORF_NAME (type, len, description)
+        - mRNA ID=ORF_ID;Parent=GENE.gene_id~~ORF_ID;Name=ORF_NAME
+        - exon ID=ORF_ID.exon;Parent=ORF_ID
+        - CDS ID=cds.ORF_ID;Parent=ORF_ID
+        - 5'UTR ID=ORF_ID.utr5p1;Parent=ORF_ID
+        - 3'UTR ID=ORF_ID.utr3p1;Parent=ORF_ID
+    '''
+
 ############
 ## DRIVER ##
 ############
@@ -190,7 +239,6 @@ def main():
         if all(os.path.exists(path) for path in [p_pep, p_gff3, p_cds, p_cds_top500]):
             print("Output files already exist. Exiting...", flush=True)
             sys.exit(0)
-        
     
     # annotation_file = args.annotation_file
     # if annotation_file:
@@ -235,12 +283,9 @@ def main():
     print(f"Step 2: Writing results to file", flush=True)
     start_time = time.time() 
     
-    with open(p_pep, "wt") as f:
+    with open(p_pep, "wt") as f_pep, open(p_gff3, "wt") as f_gff3, open(p_cds, "wt") as f_cds:
         
-        if genetic_code == 1 and not alt_start:
-            gc_name = 'universal'
-        else:
-            gc_name = f'ncbi_table_{genetic_code}'
+        gc_name = get_genetic_code(genetic_code, alt_start)
             
         for entries, desc, gene_seq in zip(seq_ORF_list, description_list, seq_list):
             count = 1
@@ -251,10 +296,20 @@ def main():
                 frame = entry[3]
                 name = desc
                 for orf in orfs:
-                    start, end = calculate_start_end(orf, len(gene_seq), strand, frame)
-                    orf_seq = prot_seq[orf[0]:orf[1]]
-                    header = f'>{name}.p{count} type:{orf[2]} len:{len(orf_seq)} gc:{gc_name} {name}:{start}-{end}({strand})'
-                    f.write(f'{header}\n{orf_seq}\n')
+                
+                    orf_prot_seq = prot_seq[orf[0]:orf[1]]
+                    orf_gene_seq = gene_seq[start-1:end] if strand == '+' else reverse_complement(gene_seq)[end-1:start]
+                    prot_len = len(orf_prot_seq)
+                    gene_len = len(orf_gene_seq)
+                    orf_type = orf[2]
+                    start, end = calculate_start_end(orf, gene_len, strand, frame)
+                    
+                    write_gff_block(f_gff3, start, end) 
+
+                    pep_header = f'>{name}.p{count} type:{orf[2]} len:{prot_len} gc:{gc_name} {name}:{start}-{end}({strand})'
+                    f_pep.write(f'{pep_header}\n{orf_prot_seq}\n')
+                    cds_header = f'>{name}.p{count} type:{orf[2]} len:{prot_len} {name}:{start}-{end}({strand})'
+                    f_pep.write(f'{cds_header}\n{orf_gene_seq}\n')
                     count += 1
         
     with open(p_gff3, "wt") as f:
