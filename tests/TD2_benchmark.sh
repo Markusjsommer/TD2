@@ -32,10 +32,10 @@ for i in $(seq 1 $NUM_RUNS); do
     eval $COMMAND
     
     # Extract relevant statistics from the log file
-    user_time=$(grep "User time (seconds):" results/TD_benchmark/time.log | awk '{print $4}')
-    system_time=$(grep "System time (seconds):" results/TD_benchmark/time.log | awk '{print $4}')
-    elapsed_time=$(grep "Elapsed (wall clock) time (h:mm:ss or m:ss):" results/TD_benchmark/time.log | awk '{print $8}')
-    max_memory=$(grep "Maximum resident set size (kbytes):" results/TD_benchmark/time.log | awk '{print $6}')
+    user_time=$(grep "User time (seconds):" results/TD2_benchmark/time.log | awk '{print $4}')
+    system_time=$(grep "System time (seconds):" results/TD2_benchmark/time.log | awk '{print $4}')
+    elapsed_time=$(grep "Elapsed (wall clock) time (h:mm:ss or m:ss):" results/TD2_benchmark/time.log | awk '{print $8}')
+    max_memory=$(grep "Maximum resident set size (kbytes):" results/TD2_benchmark/time.log | awk '{print $6}')
 
     # Convert elapsed time to seconds
     IFS=: read -r min sec <<< "$elapsed_time"
