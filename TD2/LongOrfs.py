@@ -285,14 +285,6 @@ def main():
             print("Output files already exist. Exiting...", flush=True)
             sys.exit(0)
     
-    # annotation_file = args.annotation_file
-    # if annotation_file:
-    #     use_orfanage = True
-    # else:
-    #     use_orfanage = False
-
-    # TODO: check args
-    
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
     
     
