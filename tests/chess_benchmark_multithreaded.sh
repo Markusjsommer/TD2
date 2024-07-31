@@ -8,10 +8,10 @@ conda deactivate
 conda activate td2
 pip install .
 
-NUM_THREADS=32
+NUM_THREADS=$1
 
 BASE_COMMAND="/usr/bin/time -v TD2.LongOrfs -t data/chess.fa"
-OUTPUT_DIR="results/chess_benchmark/td2/"
+OUTPUT_DIR="results/chess_benchmark/td2_multi${NUM_THREADS}/"
 
 # Remove the output directory if it exists, then create it
 if [ -d "$OUTPUT_DIR" ]; then
