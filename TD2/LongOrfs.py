@@ -2,7 +2,6 @@ import os
 import sys
 import gzip
 import time
-import heapq
 import argparse
 import warnings
 from TD2.translator import Translator
@@ -73,6 +72,8 @@ def get_args():
     parser.add_argument("--alt-start", dest="alt_start", action='store_true', required=False, help="include alternative initiator codons from provided table, default=False", default=False)
     
     parser.add_argument("--memory-threshold", dest="memory_threshold", type=int, required=False, help="memory threshold in GB, default=4", default=4)
+    
+    parser.add_argument('--top500', '-top', dest='top500', action='store_true', required=False, help='set -top to only analyze the top 500 transcripts by length, default=False', default=False)
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
     return args
@@ -274,6 +275,8 @@ def main():
     alt_start = args.alt_start
     verbose = args.verbose # TODO: work on this at the end -> tqdm stuff
     threads = args.threads
+    memory_threshold = args.memory_threshold
+    top500 = args.top500
     
     # create working dir and define output filepaths
     output_dir = os.path.abspath(args.output_dir)
@@ -281,12 +284,19 @@ def main():
     p_pep = os.path.join(output_dir, "longest_orfs.pep")
     p_gff3 = os.path.join(output_dir, "longest_orfs.gff3")
     p_cds = os.path.join(output_dir, "longest_orfs.cds")
+    path_list = [p_pep, p_gff3, p_cds]
+    
+    if top500:
+        import heapq
+        p_cds_500 = os.path.join(output_dir, "longest_orfs.cds.top_500_longest")
+        path_list.append(p_cds_500)
+        longest_cds_heap = []
 
     print("Writing to", output_dir, flush=True)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     else:
-        if all(os.path.exists(path) for path in [p_pep, p_gff3, p_cds]):
+        if all(os.path.exists(path) for path in path_list):
             print("Output files already exist. Exiting...", flush=True)
             sys.exit(0)
     
@@ -319,17 +329,15 @@ def main():
         assert None not in seq_ORF_list
     
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
-
     
     print(f"Step 2: Writing results to file", flush=True)
     start_time = time.time() 
     
     # write all peps and cds to file
-    # TODO limit sequence lines to 60
+    # TODO limit sequence lines to 80
     with open(p_pep, "wt") as f_pep, open(p_gff3, "wt") as f_gff3, open(p_cds, "wt") as f_cds:
         
         gc_name = get_genetic_code(genetic_code, alt_start)
-        longest_cds_heap = []
             
         for frames, name, gene_seq in zip(seq_ORF_list, description_list, seq_list):
             count = 1
@@ -358,8 +366,22 @@ def main():
 
                     # write gff file
                     write_gff_block(f_gff3, name, gene_len, orf_prot_len, start, end, strand, count, orf_type)
+                    
+                    if top500:
+                        # keep track of the 500 longest cds
+                        cds_length = end - start + 1
+                        if len(longest_cds_heap) < 500:
+                            heapq.heappush(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
+                        else:
+                            heapq.heappushpop(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
 
                     count += 1
+    
+    # write longest cds in descending order
+    if top500:
+        with open(p_cds_500, "wt") as f_cds_top500:
+            for _, cds_header, orf_gene_seq in sorted(longest_cds_heap, reverse=True, key=lambda x: x[0]):
+                f_cds_top500.write(f'{cds_header}\n{orf_gene_seq}\n')
         
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
 
