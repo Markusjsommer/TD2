@@ -73,7 +73,7 @@ def get_args():
     
     parser.add_argument("--memory-threshold", dest="memory_threshold", type=int, required=False, help="memory threshold in GB, default=4", default=4)
     
-    parser.add_argument('--top500', '-top', dest='top500', action='store_true', required=False, help='set -top to only analyze the top 500 transcripts by length, default=False', default=False)
+    parser.add_argument("--top", dest='top', type=int, required=False, help='set -top to also record the top N CDS transcripts by length, default=0', default=0)
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
     return args
@@ -276,7 +276,7 @@ def main():
     verbose = args.verbose # TODO: work on this at the end -> tqdm stuff
     threads = args.threads
     memory_threshold = args.memory_threshold
-    top500 = args.top500
+    top = args.top
     
     # create working dir and define output filepaths
     output_dir = os.path.abspath(args.output_dir)
@@ -286,10 +286,10 @@ def main():
     p_cds = os.path.join(output_dir, "longest_orfs.cds")
     path_list = [p_pep, p_gff3, p_cds]
     
-    if top500:
+    if top:
         import heapq
-        p_cds_500 = os.path.join(output_dir, "longest_orfs.cds.top_500_longest")
-        path_list.append(p_cds_500)
+        p_cds_top = os.path.join(output_dir, f"longest_orfs.cds.top_{top}_longest")
+        path_list.append(p_cds_top)
         longest_cds_heap = []
 
     print("Writing to", output_dir, flush=True)
@@ -367,10 +367,10 @@ def main():
                     # write gff file
                     write_gff_block(f_gff3, name, gene_len, orf_prot_len, start, end, strand, count, orf_type)
                     
-                    if top500:
-                        # keep track of the 500 longest cds
+                    if top:
+                        # keep track of the N(top) longest cds
                         cds_length = end - start + 1
-                        if len(longest_cds_heap) < 500:
+                        if len(longest_cds_heap) < top:
                             heapq.heappush(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
                         else:
                             heapq.heappushpop(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
@@ -378,10 +378,10 @@ def main():
                     count += 1
     
     # write longest cds in descending order
-    if top500:
-        with open(p_cds_500, "wt") as f_cds_top500:
+    if top:
+        with open(p_cds_top, "wt") as f_cds_top:
             for _, cds_header, orf_gene_seq in sorted(longest_cds_heap, reverse=True, key=lambda x: x[0]):
-                f_cds_top500.write(f'{cds_header}\n{orf_gene_seq}\n')
+                f_cds_top.write(f'{cds_header}\n{orf_gene_seq}\n')
         
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
 
