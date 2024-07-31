@@ -55,7 +55,7 @@ def get_args():
     required.add_argument("-t", dest="transcripts",  type=str, required=True, help="REQUIRED path to transcripts.fasta")
     
     # optional
-    parser.add_argument("-O", "--output_dir", dest="output_dir", type=str, required=False, help="path to output results, default=./transcripts.transmark_dir", default="./transcripts.transmark_dir")
+    parser.add_argument("-O", "--output_dir", dest="output_dir", type=str, required=False, help="path to output results, default=./transcripts.TD2_dir", default="./transcripts.TD2_dir")
     parser.add_argument("-m", "--min_length", dest="minimum_length", type=int, required=False, help="minimum protein length, default=100", default=100)
     parser.add_argument("-S", "--strand_specific", dest="strand_specific", action='store_true', required=False, help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
     parser.add_argument("-G", "--genetic_code", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1 (universal)", default=1)
@@ -67,9 +67,7 @@ def get_args():
     # TODO gene to transcript mapping file
     parser.add_argument("--gene_trans_map", dest="gene_trans_map", type=str, help="gene-to-transcript identifier mapping file (tab-delimited, gene_id<tab>trans_id<newline>)")
     
-    # TODO if annotation file provided -> use ORFanage to find ORFs
-    parser.add_argument("-A", dest="annotation_file", type=str, required=False, help="path to annotation file transcripts.gff, default=None", default=None)
-    
+    # TODO verbosity
     parser.add_argument("-v", "--verbose", action='store_true', help="set -v for verbose output with progress bars, default=False", default=False)
 
     parser.add_argument("--alt-start", dest="alt_start", action='store_true', required=False, help="include alternative initiator codons from provided table, default=False", default=False)
@@ -195,7 +193,7 @@ def get_genetic_code(table_num, alt_start):
 def write_gff_block(f_gff, gene_id, gene_length, prot_length, start, end, strand, count, orf_type):
     '''
     gene -> mRNA -> exon -> CDS (5'UTR, 3'UTR)
-    gene_id\ttransdecoder\tcomponent\tstart\tend\t.\tstrand\t.\tattributes
+    gene_id\tTD2\tcomponent\tstart\tend\t.\tstrand\t.\tattributes
     attributes:
         - gene ID=GENE.gene_id~~ORF_ID;Name=ORF_NAME (type, len, description)
         - mRNA ID=ORF_ID;Parent=GENE.gene_id~~ORF_ID;Name=ORF_NAME
@@ -206,48 +204,48 @@ def write_gff_block(f_gff, gene_id, gene_length, prot_length, start, end, strand
     separate handling based on complete, 5prime_partial, 3prime_partial, and internal
     '''
 
-    gene_line = f'{gene_id}\ttransdecoder\tgene\t1\t{gene_length}\t.\t{strand}\t.\tID=GENE.{gene_id}~~{gene_id}.p{count};Name={gene_id} type:{orf_type} len:{prot_length} ({strand})'
-    mrna_line = f'{gene_id}\ttransdecoder\tmRNA\t1\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count};Parent=GENE.{gene_id}~~{gene_id}.p{count};Name={gene_id} type:{orf_type} len:{prot_length} ({strand})'
-    exon_line = f'{gene_id}\ttransdecoder\texon\t1\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.exon1;Parent={gene_id}.p{count}'
+    gene_line = f'{gene_id}\tTD2\tgene\t1\t{gene_length}\t.\t{strand}\t.\tID=GENE.{gene_id}~~{gene_id}.p{count};Name={gene_id} type:{orf_type} len:{prot_length} ({strand})'
+    mrna_line = f'{gene_id}\tTD2\tmRNA\t1\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count};Parent=GENE.{gene_id}~~{gene_id}.p{count};Name={gene_id} type:{orf_type} len:{prot_length} ({strand})'
+    exon_line = f'{gene_id}\tTD2\texon\t1\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.exon1;Parent={gene_id}.p{count}'
 
     if orf_type == 'complete':
         if strand == '+':
-            cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count}'
-            five_UTR_line = f'{gene_id}\ttransdecoder\tfive_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
-            three_UTR_line = f'{gene_id}\ttransdecoder\tthree_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
+            cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count}'
+            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
+            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
         else:
             start, end = end, start
-            cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count}'
-            three_UTR_line = f'{gene_id}\ttransdecoder\tthree_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
-            five_UTR_line = f'{gene_id}\ttransdecoder\tfive_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
+            cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count}'
+            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
+            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
         block = '\n'.join([gene_line, mrna_line, five_UTR_line, exon_line, cds_line, three_UTR_line]) + '\n\n'
 
     elif orf_type == '5prime_partial':
         if strand == '+':
-            cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true'
-            three_UTR_line = f'{gene_id}\ttransdecoder\tthree_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
+            cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true'
+            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
         else:
             start, end = end, start
-            cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true'
-            three_UTR_line = f'{gene_id}\ttransdecoder\tthree_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
+            cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true'
+            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
         block = '\n'.join([gene_line, mrna_line, exon_line, cds_line, three_UTR_line]) + '\n\n'
 
     elif orf_type == '3prime_partial':
         if strand == '+':
-            cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};3_prime_partial=true'
-            five_UTR_line = f'{gene_id}\ttransdecoder\tfive_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
+            cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};3_prime_partial=true'
+            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
         else:
             start, end = end, start
-            cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};3_prime_partial=true'
-            five_UTR_line = f'{gene_id}\ttransdecoder\tfive_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
+            cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};3_prime_partial=true'
+            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
         block = '\n'.join([gene_line, mrna_line, five_UTR_line, exon_line, cds_line]) + '\n\n'
         
     elif orf_type == 'internal':
         if strand == '+':
-            cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true;3_prime_partial=true'
+            cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true;3_prime_partial=true'
         else:
             start, end = end, start
-            cds_line = f'{gene_id}\ttransdecoder\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true;3_prime_partial=true'        
+            cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true;3_prime_partial=true'        
         block = '\n'.join([gene_line, mrna_line, exon_line, cds_line]) + '\n\n'
 
     else:
@@ -283,13 +281,12 @@ def main():
     p_pep = os.path.join(output_dir, "longest_orfs.pep")
     p_gff3 = os.path.join(output_dir, "longest_orfs.gff3")
     p_cds = os.path.join(output_dir, "longest_orfs.cds")
-    p_cds_top500 = os.path.join(output_dir, "longest_orfs.cds.top_500_longest")
 
     print("Writing to", output_dir, flush=True)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     else:
-        if all(os.path.exists(path) for path in [p_pep, p_gff3, p_cds, p_cds_top500]):
+        if all(os.path.exists(path) for path in [p_pep, p_gff3, p_cds]):
             print("Output files already exist. Exiting...", flush=True)
             sys.exit(0)
     
@@ -328,6 +325,7 @@ def main():
     start_time = time.time() 
     
     # write all peps and cds to file
+    # TODO limit sequence lines to 60
     with open(p_pep, "wt") as f_pep, open(p_gff3, "wt") as f_gff3, open(p_cds, "wt") as f_cds:
         
         gc_name = get_genetic_code(genetic_code, alt_start)
@@ -361,20 +359,8 @@ def main():
                     # write gff file
                     write_gff_block(f_gff3, name, gene_len, orf_prot_len, start, end, strand, count, orf_type)
 
-                    # keep track of the 500 longest cds
-                    cds_length = end - start + 1
-                    if len(longest_cds_heap) < 500:
-                        heapq.heappush(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
-                    else:
-                        heapq.heappushpop(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
-
                     count += 1
         
-    # write longest cds in descending order
-    with open(p_cds_top500, "wt") as f_cds_top500:
-        for _, cds_header, orf_gene_seq in sorted(longest_cds_heap, reverse=True, key=lambda x: x[0]):
-            f_cds_top500.write(f'{cds_header}\n{orf_gene_seq}\n')
-    
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
 
 if __name__ == "__main__":
