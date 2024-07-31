@@ -36,3 +36,6 @@ ms_print massif.out
 
 ## compare outputs
 python ./tests/compare_peps.py ./results/TD_benchmark/time/longest_orfs.pep ./results/TD2_benchmark/time/transcripts.transmark_dir/longest_orfs.pep --diff --matched --internal
+
+## multithreading
+TD2.LongOrfs -t data/MANE.GRCh38.v1.3.refseq_rna.fna -@ 32 -O results/multi/
