@@ -306,6 +306,13 @@ def main():
     
     from concurrent.futures import ProcessPoolExecutor, as_completed
     import psutil
+
+    def flush_results(f_pep, f_gff3, f_cds, results):
+        for result in results:
+            pep_header, prot_seq, cds_header, orf_gene_seq, gff_block = result
+            f_pep.write(f'{pep_header}\n{prot_seq}\n')
+            f_cds.write(f'{cds_header}\n{orf_gene_seq}\n')
+            f_gff3.write(gff_block)
     
     # clear files if they exist
     for path in path_list:
@@ -319,32 +326,24 @@ def main():
     
     # create translator object
     translator = Translator(table=genetic_code, alt_start=alt_start)
-    
-    # Function to flush results directly to final files
-    def flush_results(f_pep, f_gff3, f_cds, results):
-        for result in results:
-            pep_header, prot_seq, cds_header, orf_gene_seq, gff_block = result
-            f_pep.write(f'{pep_header}\n{prot_seq}\n')
-            f_cds.write(f'{cds_header}\n{orf_gene_seq}\n')
-            f_gff3.write(gff_block)
 
     with open(p_pep, 'a') as f_pep, open(p_gff3, 'a') as f_gff3, open(p_cds, 'a') as f_cds:
         
         gc_name = get_genetic_code(genetic_code, alt_start)
         results = []
-        max_batch_size = 100000
-        batch_size = max_batch_size // 2
+        MAX_BATCH_SIZE = 100000
+        batch_size = MAX_BATCH_SIZE // 2
         batch_start = 0
 
         while batch_start < len(seq_list):
+
             # Adjust batch size based on memory usage
-            print(psutil.virtual_memory().percent, flush=True)
             while psutil.virtual_memory().percent > memory_threshold and batch_size > 1:
                 batch_size //= 2
-            if psutil.virtual_memory().percent < memory_threshold*0.9 and batch_size < max_batch_size:
-                batch_size = min(batch_size * 2, max_batch_size)
+            if psutil.virtual_memory().percent < memory_threshold*0.9 and batch_size < MAX_BATCH_SIZE:
+                batch_size = min(batch_size * 2, MAX_BATCH_SIZE)
                 
-            print("Batch size:", batch_size, flush=True)
+            print(f"Percent virtual memory utilization: {psutil.virtual_memory().percent}%, Batch size: {batch_size}", flush=True)
             
             batch_end = min(batch_start + batch_size, len(seq_list))
             batch_seqs = seq_list[batch_start:batch_end]

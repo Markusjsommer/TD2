@@ -9,9 +9,10 @@ conda activate td2
 pip install .
 
 NUM_THREADS=$1
+MEMORY_LIMIT=$2
 
 BASE_COMMAND="/usr/bin/time -v TD2.LongOrfs -t data/chess.fa"
-OUTPUT_DIR="results/chess_benchmark/td2_multi${NUM_THREADS}/"
+OUTPUT_DIR="results/chess_benchmark/td2_multi${NUM_THREADS}_mem${MEMORY_LIMIT}/"
 
 # Remove the output directory if it exists, then create it
 if [ -d "$OUTPUT_DIR" ]; then
@@ -24,7 +25,7 @@ RESULT_FILE="${OUTPUT_DIR}time_stats.txt"
 echo "User Time (seconds), System Time (seconds), Elapsed Time (seconds), Maximum Memory (kbytes)" > $RESULT_FILE
 
 # Construct the command
-COMMAND="$BASE_COMMAND -O $OUTPUT_DIR -@ $NUM_THREADS > ${OUTPUT_DIR}time.log 2>&1"
+COMMAND="$BASE_COMMAND -O $OUTPUT_DIR -@ $NUM_THREADS -M $MEMORY_LIMIT > ${OUTPUT_DIR}time.log 2>&1"
 eval $COMMAND
 
 # Extract relevant statistics from the log file

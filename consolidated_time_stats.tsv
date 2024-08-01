@@ -1,0 +1,8 @@
+Benchmark	User Time (seconds)	System Time (seconds)	Elapsed Time (seconds)	Maximum Memory (kbytes)
+td	6636.35	10.92	6703.0	336308.0
+td2_multi1	1635.24	12.87	1661.58	11603968.0
+td2_multi16	2305.02	102.07	235.83	13527984.0
+td2_multi32	2449.38	114.53	231.7	13519080.0
+td2_multi64	2557.64	135.04	275.29	13497952.0
+td2_multi16_mem2	2472.49	211.31	284.16	4849192.0
+td2_multi16_mem5	2388.61	137.76	250.84	8772520.0
