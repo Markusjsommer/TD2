@@ -13,6 +13,7 @@ import numpy as np
 from tqdm.auto import tqdm
 from io import StringIO
 from collections import defaultdict
+from collections import OrderedDict
 
 from TD2.translator import Translator
 from TD2.LongOrfs import load_fasta
@@ -93,12 +94,12 @@ def main():
     
     # load psauron results
     df_psauron = pandas.read_csv(p_score, skiprows=3)
-    name_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
+    ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
                               df_psauron["in_frame_score"]))
     
     # select transcripts based on psauron score
     df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and all(row[3:] < row['in_frame_score']), axis=1)]
-    name_psauron_selected = set([str(x.split(" ")[0]) for x in df_psauron_selected["description"]])
+    ID_psauron_selected = set([str(x.split(" ")[0]) for x in df_psauron_selected["description"]])
     
     print(f"Done.")
     
@@ -154,21 +155,21 @@ def main():
     # get full description lines to retrieve intervals
     with open(p_pep, "rt") as f:
         pep_description_list = [x for x in f.readlines() if x.startswith(">")]
-    pep_name_list = []
+    pep_ID_list = []
     pep_transcript_list = []
     pep_strand_list = []
     pep_lowcoord_list = []
     pep_highcoord_list = []
     for d in pep_description_list:
         l = d.split(" ")
-        name = str(l[0][1:])
+        ID = str(l[0][1:])
         transcript = str(l[-1].split(":")[0])
         coords = str(l[-1].split(":")[1][:-4])
         coords_int = [int(x) for x in coords.split("-")]
         lowcoord = min(coords_int)
         highcoord = max(coords_int)
         
-        pep_name_list.append(name)
+        pep_ID_list.append(ID)
         pep_transcript_list.append(transcript)
         pep_lowcoord_list.append(lowcoord)
         pep_highcoord_list.append(highcoord)
@@ -176,16 +177,16 @@ def main():
     # group intervals by transcript
     transcript_intervals = defaultdict(list)
     for i, transcript in enumerate(pep_transcript_list):
-        transcript_intervals[transcript].append((pep_name_list[i],
+        transcript_intervals[transcript].append((pep_ID_list[i],
                                                  (pep_lowcoord_list[i],
                                                   pep_highcoord_list[i])))
     
     # find fully encapsulated ORFs
-    name_encapsulated = set()
+    ID_encapsulated = set()
     for transcript, intervals in transcript_intervals.items():
         encapsulated = find_encapsulated_intervals(intervals)
-        name_encapsulated.update(encapsulated)
-    print(f"Removing {len(name_encapsulated):d} encapsulated ORFs", flush=True)
+        ID_encapsulated.update(encapsulated)
+    print(f"Removing {len(ID_encapsulated):d} encapsulated ORFs", flush=True)
     
     # write final outputs to current working directory
     basename = os.path.basename(args.transcripts)
@@ -193,8 +194,10 @@ def main():
     p_gff3_final = basename + ".TD2.gff3"
     p_cds_final = basename + ".TD2.cds"
     p_bed_final = basename + ".TD2.bed" # TODO bed file, probably better just to write gff then convert
+    print(f"Writing final output to current working directory", flush=True)
     
     # pep fasta
+    ID_final = set() # IDs of all transcripts that pass filters
     with open(p_pep, "rt") as f_pep, open(p_pep_final, "wt") as f_pep_final:
         longorfs_pep = f_pep.readlines()
         description_list = []
@@ -207,33 +210,50 @@ def main():
         # get ORF information
         for i, ORF in enumerate(description_list):
             s = ORF.split(" ")
-            name = str(s[0])
+            ID = str(s[0])
             # discard encapsulated
-            if name in name_encapsulated:
+            if ID in ID_encapsulated:
                 continue
             # filter with psauron and homology
-            if not ((name in name_psauron_selected) or (name in hits_mmeseqs) or (name in hits_blastp) or (name in hits_hmmer)):
+            if not ((ID in ID_psauron_selected) or (ID in hits_mmeseqs) or (ID in hits_blastp) or (ID in hits_hmmer)):
                 continue
-            gene = str(".".join(s[0].split(".")[:-1])) # TODO do we need to get gene name from the tab delimited file?
+            gene = str(".".join(s[0].split(".")[:-1])) # TODO do we need to get gene ID from the tab delimited file?
             ORF_type = str(s[1].split(":")[1])
-            psauron_score = '{:.3f}'.format(round(float(name_to_score[name]), 3))
+            psauron_score = '{:.3f}'.format(round(float(ID_to_score[ID]), 3))
             length = str(s[2].split(":")[1])
             location = s[-1].rstrip()
             strand = location[-3:]
             # match TransDecoder output format
-            description_line_final = ">" + name + " GENE." + gene + "~~" + name + "  ORF type:" + ORF_type + " " + strand + ",psauron_score=" + psauron_score + " len:" + length + " " + location + "\n"
+            description_line_final = ">" + ID + " GENE." + gene + "~~" + ID + "  ORF type:" + ORF_type + " " + strand + ",psauron_score=" + psauron_score + " len:" + length + " " + location + "\n"
             f_pep_final.write(description_line_final)
             seq = seq_list[i]
             while len(seq) > 60:
                 f_pep_final.write(str(seq[:60]) + "\n")
                 seq = seq[60:]
             f_pep_final.write(str(seq))
+            ID_final.add(ID)
             
-        # gff3
-            
-            
-    
-    
+     
+    # gff3
+    with open(p_gff3, "rt") as f_gff3, open(p_gff3_final, "wt") as f_gff3_final:
+        longorfs_gff3 = f_gff3.readlines()
+        ID_to_block = OrderedDict()
+        # associate gff3 blocks with transcript ids
+        ID = ""
+        for line in longorfs_gff3:
+            if ID == "":
+                ID = str(line.split("~")[-1].split(";")[0])
+                block_list = [line]
+            else:
+                block_list.append(line)
+                if line == "\n":
+                    block = "".join(block_list)
+                    ID_to_block[ID] = block
+                    ID = ""
+        # write final gff3
+        for ID, block in ID_to_block.items():
+            if ID in ID_final:
+                f_gff3_final.write(block)
     
     
     
