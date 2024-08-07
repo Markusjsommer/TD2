@@ -71,6 +71,8 @@ def get_args():
     parser.add_argument("-v", "--verbose", action='store_true', help="set -v for verbose output with progress bars, default=False", default=False)
 
     parser.add_argument("--alt-start", dest="alt_start", action='store_true', required=False, help="include alternative initiator codons from provided table, default=False", default=False)
+    
+    parser.add_argument("--memory-threshold", dest="memory_threshold", type=int, required=False, help="memory threshold in GB, default=4", default=4)
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
     return args
@@ -166,6 +168,11 @@ def find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only):
             all_orf_list.append((sequence, filtered_orfs, '-', i+1))
     
     return all_orf_list
+
+def find_ORFs_with_index(index, seq, translator, min_len_aa, strand_specific, complete_orfs_only):
+    '''Finds all open reading frames above minimum length threshold and returns index with result (for multithreading)'''
+    orfs = find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only)
+    return index, orfs
 
 def calculate_start_end(orf, length, strand, frame):
     '''Calculates start and end positions of ORF in genomic coordinates'''
@@ -266,6 +273,7 @@ def main():
     genetic_code = args.genetic_code
     alt_start = args.alt_start
     verbose = args.verbose # TODO: work on this at the end -> tqdm stuff
+    threads = args.threads
     
     # create working dir and define output filepaths
     output_dir = os.path.abspath(args.output_dir)
@@ -294,9 +302,21 @@ def main():
     # create translator object
     translator = Translator(table=genetic_code, alt_start=alt_start)
         
-    # find all ORFs
-    seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
-     
+    # find all ORFs using single thread
+    if threads == 1:
+        seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
+    # use multithreading/multiprocessing
+    else:
+        from concurrent.futures import ProcessPoolExecutor, as_completed
+        seq_ORF_list = [None] * len(seq_list)  # list to hold results in order
+        with ProcessPoolExecutor(max_workers=threads) as executor:
+            future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, strand_specific, complete_orfs_only): i for i, seq in enumerate(seq_list)}
+            for future in as_completed(future_to_index):
+                index, orfs = future.result()
+                seq_ORF_list[index] = orfs  # place result at the correct index
+
+        # ensure all results are collected
+        assert None not in seq_ORF_list
     
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
 
