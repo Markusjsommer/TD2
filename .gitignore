@@ -9,3 +9,5 @@ results/
 *.diff
 profile*
 pipeliner*
+.DS_Store
+.gitmodules
