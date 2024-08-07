@@ -5,7 +5,6 @@ import time
 import argparse
 import warnings
 from TD2.translator import Translator
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 ####################
 ### INIT GLOBALS ###
@@ -50,7 +49,7 @@ ncbi_table_mapping = {
 def get_args():
     parser = argparse.ArgumentParser()
     
-   # required
+    # required
     required = parser.add_argument_group('required arguments')
     required.add_argument("-t", dest="transcripts",  type=str, required=True, help="REQUIRED path to transcripts.fasta")
     
@@ -60,16 +59,21 @@ def get_args():
     parser.add_argument("-S", "--strand_specific", dest="strand_specific", action='store_true', required=False, help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
     parser.add_argument("-G", "--genetic_code", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1 (universal)", default=1)
     parser.add_argument("-c", "--complete_orfs", dest="complete_orfs_only", action='store_true', required=False, help="set -c to yield only complete ORFs (peps start with Met (M), end with stop (*)), default=False", default=False)
-    parser.add_argument("-@", "--threads", dest="threads", type=int, required=False, help="number of threads to use, default=1", default=1)
-    parser.add_argument("-M", "--memory-threshold", dest="memory_threshold", type=float, required=False, help="percent available virtual memory to set as maximum before flushing to file, default=None", default=None)
-    parser.add_argument("--alt-start", dest="alt_start", action='store_true', required=False, help="include alternative initiator codons from provided table, default=False", default=False)
-    parser.add_argument("--top", dest='top', type=int, required=False, help='set -top to also record the top N CDS transcripts by length, default=0', default=0)
-
+    
+    
+    parser.add_argument("-@", "--threads", dest="threads", type=int, help="number of threads to use, default=1", default=1)
+    
     # TODO gene to transcript mapping file
     parser.add_argument("--gene_trans_map", dest="gene_trans_map", type=str, required=False, help="gene-to-transcript identifier mapping file (tab-delimited, gene_id<tab>trans_id<newline>)")
     
     # TODO verbosity
     parser.add_argument("-v", "--verbose", action='store_true', help="set -v for verbose output with progress bars, default=False", default=False)
+
+    parser.add_argument("-alt", "--alt-start", dest="alt_start", action='store_true', required=False, help="include alternative initiator codons from provided table, default=False", default=False)
+    
+    parser.add_argument("-M", "--memory-threshold", dest="memory_threshold", type=float, required=False, help="memory threshold in GB, default=None", default=None)
+    
+    parser.add_argument("-top", "--top-cds-file", dest='top', type=int, required=False, help='set -top to also record the top N CDS transcripts by length, default=0', default=0)
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
     return args
@@ -89,7 +93,7 @@ def load_fasta(filepath):
         seq_list.append(seq)
     
     f.close()
-    print(f"Loaded {len(seq_list)} sequences.")
+    print("Loaded...\n")
     return description_list, seq_list
     
 def readfq(fp): 
@@ -186,6 +190,7 @@ def get_genetic_code(table_num, alt_start):
     else:
         return ncbi_table_mapping[table_num].lower()
     
+
 def create_gff_block(gene_id, gene_length, prot_length, start, end, strand, count, orf_type):
     '''
     gene -> mRNA -> exon -> CDS (5'UTR, 3'UTR)
@@ -252,13 +257,13 @@ def create_gff_block(gene_id, gene_length, prot_length, start, end, strand, coun
 ############
 ## DRIVER ##
 ############
-    
+
 def main():
     # suppress annoying warnings
     warnings.filterwarnings('ignore')
     print("Python", sys.version, "\n")
     
-    print(f"Step 1: Initializing args and loading inputs...", flush=True)
+    print(f"Initializing args...", flush=True)
     start_time = time.time()
     
     # parse command line arguments
@@ -282,149 +287,79 @@ def main():
     path_list = [p_pep, p_gff3, p_cds]
     
     if top:
-        import heapq
+        import heapq 
         p_cds_top = os.path.join(output_dir, f"longest_orfs.cds.top_{top}_longest")
         path_list.append(p_cds_top)
         longest_cds_heap = []
-
+        
+    print("Writing to", output_dir, flush=True)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-        print("Writing to", output_dir, flush=True)
     else:
         if all(os.path.exists(path) for path in path_list):
             print("Output files already exist. Exiting...", flush=True)
             sys.exit(0)
+    
+    print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
+    
+    ############################################## NEW IF MEMORY SPECIFIED #########################################################
+    
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    import psutil
 
+    def flush_results(f_pep, f_gff3, f_cds, results):
+        for result in results:
+            pep_header, prot_seq, cds_header, orf_gene_seq, gff_block = result
+            f_pep.write(f'{pep_header}\n{prot_seq}\n')
+            f_cds.write(f'{cds_header}\n{orf_gene_seq}\n')
+            f_gff3.write(gff_block)
+    
+    # clear files if they exist
+    for path in path_list:
+        open(path, 'w').close()
+    
+    print(f"Finding all ORFs with protein length >= {min_len_aa} in dynamic memory mode...", flush=True)
+    start_time = time.time()
+    
     # load FASTA
     description_list, seq_list = load_fasta(args.transcripts)
     
     # create translator object
     translator = Translator(table=genetic_code, alt_start=alt_start)
-    
-    print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
-    
-    #### DYNAMIC MEMORY MODE ####
-    if memory_threshold:
-        import psutil
 
-        print(f"Step 2+: Finding all ORFs with protein length >= {min_len_aa} in dynamic memory mode with {memory_threshold}% virtual memory allocation...", flush=True)
-        start_time = time.time()
-
-        def flush_results(f_pep, f_gff3, f_cds, results):
-            for result in results:
-                pep_header, prot_seq, cds_header, orf_gene_seq, gff_block = result
-                f_pep.write(f'{pep_header}\n{prot_seq}\n')
-                f_cds.write(f'{cds_header}\n{orf_gene_seq}\n')
-                f_gff3.write(gff_block)
+    with open(p_pep, 'a') as f_pep, open(p_gff3, 'a') as f_gff3, open(p_cds, 'a') as f_cds:
         
-        # clear files if they exist
-        for path in path_list:
-            open(path, 'w').close()
+        gc_name = get_genetic_code(genetic_code, alt_start)
+        results = []
+        MAX_BATCH_SIZE = 100000
+        batch_size = MAX_BATCH_SIZE // 2
+        batch_start = 0
 
-        # write files in append mode in batches
-        with open(p_pep, 'a') as f_pep, open(p_gff3, 'a') as f_gff3, open(p_cds, 'a') as f_cds:
+        while batch_start < len(seq_list):
+
+            # Adjust batch size based on memory usage
+            while psutil.virtual_memory().percent > memory_threshold and batch_size > 1:
+                batch_size //= 2
+            if psutil.virtual_memory().percent < memory_threshold*0.9 and batch_size < MAX_BATCH_SIZE:
+                batch_size = min(batch_size * 2, MAX_BATCH_SIZE)
+                
+            print(f"Percent virtual memory utilization: {psutil.virtual_memory().percent}%, Batch size: {batch_size}", flush=True)
             
-            gc_name = get_genetic_code(genetic_code, alt_start)
-            results = []
-            max_batch_size = len(seq_list) // 2
-            batch_size = max_batch_size // 5
-            batch_start = 0
+            batch_end = min(batch_start + batch_size, len(seq_list))
+            batch_seqs = seq_list[batch_start:batch_end]
+            batch_descriptions = description_list[batch_start:batch_end]
 
-            while batch_start < len(seq_list):
+            if threads == 1:
+                batch_results = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in batch_seqs]
+            else:
+                batch_results = [None] * len(batch_seqs)
+                with ProcessPoolExecutor(max_workers=threads) as executor:
+                    future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, strand_specific, complete_orfs_only): i for i, seq in enumerate(batch_seqs)}
+                    for future in as_completed(future_to_index):
+                        index, orfs = future.result()
+                        batch_results[index] = orfs
 
-                # adjust batch size based on memory usage
-                cur_memory = psutil.virtual_memory().percent
-                distance = cur_memory - memory_threshold
-                scale = abs(distance) / memory_threshold
-                if distance > 0 and batch_size > 2: # reduce batch size
-                    batch_size -= max(1, int(batch_size * scale))
-                elif distance < 0 and batch_size < max_batch_size: # increase batch size
-                    batch_size += min(int(batch_size * scale), max_batch_size)
-                    
-                print(f"Percent virtual memory utilization: {cur_memory}%, Batch size: {batch_size}.", end='\t', flush=True)
-                
-                batch_end = min(batch_start + batch_size, len(seq_list))
-                batch_seqs = seq_list[batch_start:batch_end]
-                batch_descriptions = description_list[batch_start:batch_end]
-
-                if threads == 1:
-                    batch_results = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in batch_seqs]
-                else:
-                    batch_results = [None] * len(batch_seqs)
-                    with ProcessPoolExecutor(max_workers=threads) as executor:
-                        future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, strand_specific, complete_orfs_only): i for i, seq in enumerate(batch_seqs)}
-                        for future in as_completed(future_to_index):
-                            index, orfs = future.result()
-                            batch_results[index] = orfs
-
-                for frames, name, gene_seq in zip(batch_results, batch_descriptions, batch_seqs):
-                    count = 1
-                    gene_len = len(gene_seq)
-                    for frame_info in frames:
-                        prot_seq = frame_info[0]
-                        orfs = frame_info[1]
-                        strand = frame_info[2]
-                        frame = frame_info[3]
-                        
-                        for orf in orfs:
-                            start, end = calculate_start_end(orf, gene_len, strand, frame)
-                            orf_prot_seq = prot_seq[orf[0]:orf[1]]
-                            orf_gene_seq = gene_seq[start-1:end] if strand == '+' else reverse_complement(gene_seq[end-1:start])
-                            orf_prot_len = len(orf_prot_seq)
-                            orf_type = orf[2]
-
-                            pep_header = f'>{name}.p{count} type:{orf_type} len:{orf_prot_len} gc:{gc_name} {name}:{start}-{end}({strand})'
-                            cds_header = f'>{name}.p{count} type:{orf_type} len:{orf_prot_len} {name}:{start}-{end}({strand})'
-                            gff_block = create_gff_block(name, gene_len, orf_prot_len, start, end, strand, count, orf_type)
-
-                            results.append((pep_header, orf_prot_seq, cds_header, orf_gene_seq, gff_block))
-
-                            if top:
-                                cds_length = end - start + 1
-                                if len(longest_cds_heap) < top:
-                                    heapq.heappush(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
-                                else:
-                                    heapq.heappushpop(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
-                            count += 1
-                
-                # flush results to final files if memory usage exceeds threshold
-                flush_results(f_pep, f_gff3, f_cds, results)
-                results.clear()
-                print(f"Processed {batch_end} transcripts. {time.time() - start_time:.3f} seconds", flush=True)
-                batch_start = batch_end
-
-    #### STANDARD MODE ####
-    else:
-        print(f"Step 2: Finding all ORFs with protein length >= {min_len_aa}...", flush=True)
-        start_time = time.time()
-        
-        # find all ORFs using single thread
-        if threads == 1:
-            seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
-        # use multithreading/multiprocessing
-        else:
-            seq_ORF_list = [None] * len(seq_list)  # list to hold results in order
-            with ProcessPoolExecutor(max_workers=threads) as executor:
-                future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, strand_specific, complete_orfs_only): i for i, seq in enumerate(seq_list)}
-                for future in as_completed(future_to_index):
-                    index, orfs = future.result()
-                    seq_ORF_list[index] = orfs  # place result at the correct index
-                    
-            # ensure all results are collected
-            assert None not in seq_ORF_list
-        
-        print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
-        
-        print(f"Step 3: Writing results to file...", flush=True)
-        start_time = time.time() 
-        
-        # write all peps and cds to file
-        # TODO limit sequence lines to 80
-        with open(p_pep, "wt") as f_pep, open(p_gff3, "wt") as f_gff3, open(p_cds, "wt") as f_cds:
-            
-            gc_name = get_genetic_code(genetic_code, alt_start)
-                
-            for frames, name, gene_seq in zip(seq_ORF_list, description_list, seq_list):
+            for frames, name, gene_seq in zip(batch_results, batch_descriptions, batch_seqs):
                 count = 1
                 gene_len = len(gene_seq)
                 for frame_info in frames:
@@ -434,26 +369,19 @@ def main():
                     frame = frame_info[3]
                     
                     for orf in orfs:
-                        
                         start, end = calculate_start_end(orf, gene_len, strand, frame)
                         orf_prot_seq = prot_seq[orf[0]:orf[1]]
                         orf_gene_seq = gene_seq[start-1:end] if strand == '+' else reverse_complement(gene_seq[end-1:start])
                         orf_prot_len = len(orf_prot_seq)
                         orf_type = orf[2]
 
-                        # write pep file
                         pep_header = f'>{name}.p{count} type:{orf_type} len:{orf_prot_len} gc:{gc_name} {name}:{start}-{end}({strand})'
-                        f_pep.write(f'{pep_header}\n{orf_prot_seq}\n')
-
-                        # write cds file
                         cds_header = f'>{name}.p{count} type:{orf_type} len:{orf_prot_len} {name}:{start}-{end}({strand})'
-                        f_cds.write(f'{cds_header}\n{orf_gene_seq}\n')
+                        gff_block = create_gff_block(name, gene_len, orf_prot_len, start, end, strand, count, orf_type)
 
-                        # write gff file
-                        f_gff3.write(create_gff_block(name, gene_len, orf_prot_len, start, end, strand, count, orf_type))
-                        
+                        results.append((pep_header, orf_prot_seq, cds_header, orf_gene_seq, gff_block))
+
                         if top:
-                            # keep track of the N(top) longest cds
                             cds_length = end - start + 1
                             if len(longest_cds_heap) < top:
                                 heapq.heappush(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
@@ -461,7 +389,15 @@ def main():
                                 heapq.heappushpop(longest_cds_heap, (cds_length, cds_header, orf_gene_seq))
 
                         count += 1
-        
+            
+            # Flush results to final files if memory usage exceeds threshold
+            flush_results(f_pep, f_gff3, f_cds, results)
+            results.clear()
+            print(f"Processed {batch_end} transcripts. {time.time() - start_time:.3f} seconds", flush=True)
+            batch_start = batch_end
+            
+    #################################################################################################################################
+
     # write longest cds in descending order
     if top:
         with open(p_cds_top, "wt") as f_cds_top:
