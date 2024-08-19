@@ -28,12 +28,13 @@ def get_args():
     
     # optional
     parser.add_argument("-P", dest="psauron_cutoff", type=float, required=False, help="minimum in-frame PSAURON score required to report ORF, assuming no homology hits (range: [0,1]; default: 0.25)", default=0.25)
-    parser.add_argument("--retain_mmseqs_hits",  type=str, required=False, help="mmseqs output in '.m8' format. Any ORF with a MMseqs2 match will be retained in the final output.")
-    parser.add_argument("--retain_blastp_hits",  type=str, required=False, help="blastp output in '-outfmt 6' format. Any ORF with a blastp match will be retained in the final output.")
-    parser.add_argument("--retain_hmmer_hits",  type=str, required=False, help="domain table output file from running hmmer to search Pfam. Any ORF with a Pfam domain hit will be retained in the final output.")
+    parser.add_argument("--retain_mmseqs_hits",  type=str, required=False, help="mmseqs output in '.m8' format. Complete ORFs with a MMseqs2 match will be retained in the final output.")
+    parser.add_argument("--retain_blastp_hits",  type=str, required=False, help="blastp output in '-outfmt 6' format. Complete ORFs with a blastp match will be retained in the final output.")
+    parser.add_argument("--retain_hmmer_hits",  type=str, required=False, help="domain table output file from running hmmer to search Pfam. Complete ORFs with a Pfam domain hit will be retained in the final output.")
     parser.add_argument("--retain_long_orfs_length",  type=int, required=False, help="retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding (default: 1000000, so essentially turned off by default.)", default=1000000)
     parser.add_argument("--single_best_only",  type=str, required=False, help="retain only the single best orf per transcript (prioritized by homology then orf length)")
-    parser.add_argument("--retain_encapsulated",  action='store_true', help="report ORFs that are fully contained within larger ORFs, default=False")
+    parser.add_argument("--retain_encapsulated",  action='store_true', help="retain ORFs that are fully contained within larger ORFs, default=False")
+    parser.add_argument("--retain_partial",  action='store_true', help="retain 5' and 3' partial ORFs (may cause correct complete ORFs to be missed), default=False")
     parser.add_argument("-O", dest="output_dir", type=str, required=False, help="same output directory from LongOrfs", default="./transcripts.TD2_dir")
     parser.add_argument("-G", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1", default=1)
     
@@ -85,10 +86,10 @@ def main():
     p_score = os.path.join(output_dir, "psauron_score.csv")
     if args.verbose:
         command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-v"]
-        #result_psauron = subprocess.run(command_psauron, capture_output=False, text=True)
+        result_psauron = subprocess.run(command_psauron, capture_output=False, text=True)
     else:
         command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff)]
-        #result_psauron = subprocess.run(command_psauron, capture_output=True, text=True)
+        result_psauron = subprocess.run(command_psauron, capture_output=True, text=True)
     
     # load psauron results
     df_psauron = pandas.read_csv(p_score, skiprows=3)
@@ -114,7 +115,10 @@ def main():
         p_mmseqs = args.retain_mmseqs_hits
         df_mmseqs = pandas.read_table(p_mmseqs, header=None)
         hits_mmeseqs = set(df_mmseqs[0])
-        print(f"Found {int(len(hits_mmeseqs)):d} ORFs with MMseqs2 hits", flush=True)
+        if int(len(hits_mmeseqs)) == 1:
+            print(f"Found {int(len(hits_mmeseqs)):d} ORF with MMseqs2 hit", flush=True)
+        else:
+            print(f"Found {int(len(hits_mmeseqs)):d} ORFs with MMseqs2 hits", flush=True)
     
     # parse blast
     hits_blastp = set()
@@ -123,7 +127,10 @@ def main():
         p_blastp = args.retain_blastp_hits
         df_blastp = pandas.read_table(p_blastp, header=None)
         hits_blastp = set(df_blastp[0])
-        print(f"Found {int(len(hits_blastp)):d} ORFs with blastp hits", flush=True)   
+        if int(len(hits_blastp)) == 1:
+            print(f"Found {int(len(hits_blastp)):d} ORF with blastp hit", flush=True)
+        else:
+            print(f"Found {int(len(hits_blastp)):d} ORFs with blastp hits", flush=True)   
         
     # parse hmmer
     hits_hmmer = set()
@@ -136,12 +143,15 @@ def main():
         f_filtered = StringIO(''.join(filtered_lines))
         df_hmmer = pandas.read_table(f_filtered, header=None)
         hits_hmmer = set(df_hmmer[0])
-        print(f"Found {int(len(hits_hmmer)):d} ORFs with hmmer hits", flush=True)  
+        if int(len(hits_hmmer)) == 1:
+            print(f"Found {int(len(hits_hmmer)):d} ORF with hmmer hit", flush=True)  
+        else:
+            print(f"Found {int(len(hits_hmmer)):d} ORFs with hmmer hits", flush=True)  
     print(f"Done.")
     
     
     # generate final ORfs
-    print(f"Step 3: Generating final ORFs", flush=True)
+    print(f"Step 3: Deciding upon final ORFs", flush=True)
     
     # load LongOrfs output
     print(f"Loading LongOrfs output from {output_dir}", flush=True)
@@ -158,6 +168,7 @@ def main():
     pep_lowcoord_list = []
     pep_highcoord_list = []
     pep_ID_to_info = dict()
+    ID_to_partial = dict()
     for d in pep_description_list:
         l = d.split(" ")
         ID = str(l[0][1:])
@@ -166,12 +177,17 @@ def main():
         coords_int = [int(x) for x in coords.split("-")]
         lowcoord = min(coords_int)
         highcoord = max(coords_int)
+        if ("5prime_partial" in d) or ("3prime_partial" in d):
+            partial = True
+        else:
+            partial = False
         
         pep_ID_list.append(ID)
         pep_transcript_list.append(transcript)
         pep_lowcoord_list.append(lowcoord)
         pep_highcoord_list.append(highcoord)
         pep_ID_to_info[ID] = (transcript, lowcoord, highcoord)
+        ID_to_partial[ID] = partial
     
     # write final outputs to current working directory
     basename = os.path.basename(args.transcripts)
@@ -183,6 +199,7 @@ def main():
     # ORF selection
     ID_selected = set() # IDs of all transcripts that pass filters
     ID_to_info = dict()
+    ID_to_description = dict()
     with open(p_pep, "rt") as f_pep:
         longorfs_pep = f_pep.readlines()
         description_list = []
@@ -196,9 +213,16 @@ def main():
         for i, ORF in enumerate(description_list):
             s = ORF.split(" ")
             ID = str(s[0])
+            ID_to_description[ID] = ORF
             # filter with psauron and homology
             if not ((ID in ID_psauron_selected) or (ID in hits_mmeseqs) or (ID in hits_blastp) or (ID in hits_hmmer)):
                 continue
+                
+            # remove partial ORFs by default
+            if ID_to_partial[ID] and not args.retain_partial:
+                continue
+            
+            # get transcript info
             gene = str(".".join(s[0].split(".")[:-1])) # TODO do we need to get gene ID from the tab delimited file?
             ORF_type = str(s[1].split(":")[1])
             psauron_score = '{:.3f}'.format(round(float(ID_to_score[ID]), 3))
@@ -239,7 +263,10 @@ def main():
         for transcript, intervals in transcript_intervals.items():
             encapsulated = find_encapsulated_intervals(intervals)
             ID_encapsulated.update(encapsulated)
-        print(f"Removing {len(ID_encapsulated):d} encapsulated ORFs", flush=True)
+        if len(ID_encapsulated) == 1:
+            print(f"Removing {len(ID_encapsulated):d} encapsulated ORF", flush=True)
+        else:
+            print(f"Removing {len(ID_encapsulated):d} encapsulated ORFs", flush=True)
         
         # remove from final set
         ID_selected -= ID_encapsulated    
@@ -270,6 +297,7 @@ def main():
             f_cds_final.write(str(seq_cds) + "\n")
      
     # gff3
+    ID_to_transcript_length = dict()
     with open(p_gff3, "rt") as f_gff3, open(p_gff3_final, "wt") as f_gff3_final:
         longorfs_gff3 = f_gff3.readlines()
         ID_to_block = OrderedDict()
@@ -278,6 +306,8 @@ def main():
         for line in longorfs_gff3:
             if ID == "":
                 ID = str(line.split("~")[-1].split(";")[0])
+                transcript_length = int(line.split("\t")[4])
+                ID_to_transcript_length[ID] = transcript_length
                 block_list = [line]
             else:
                 block_list.append(line)
@@ -291,8 +321,36 @@ def main():
                 f_gff3_final.write(block)
     
     # bed
-    
-    
+    with open(p_bed_final, "wt") as f:
+        line = "track name='" + basename + ".TD2.gff3'\n"
+        f.write(line)
+        for ID in ID_selected:
+            description = ID_to_description[ID].rstrip()
+            
+            # standard bed file format
+            chrom = ".".join(ID.split(".")[:-1])
+            chromStart = "0"
+            chromEnd = str(ID_to_transcript_length[ID])
+            name = "ID=" + ID + ";" + ";".join(description.split(" ")[1:])
+            print(name)
+            score = str(int(ID_to_score[ID] * 1000)) # uses psauron score, range 0-1000 for bed file display
+            strand = str(description[-2:-1])
+            thickStart = str(description.split(":")[-1].split("-")[0])
+            thickEnd = str(description.split(":")[-1].split("-")[1][:-3])
+            itemRgb = "0"
+            blockCount = "1"
+            blockSizes = chromEnd
+            blockStarts = "0"
+            
+            linelist = [chrom, chromStart, chromEnd,
+                        name, score, strand,
+                        thickStart, thickEnd, itemRgb,
+                        blockCount, blockSizes, blockStarts]
+            line = "\t".join(linelist)
+            f.write(line + "\n")
+
+    # TODO sort bed by default?
+    # sort -k 1,1 -k2,2n a.bed
     
 
     
