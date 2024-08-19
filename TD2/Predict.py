@@ -332,7 +332,6 @@ def main():
             chromStart = "0"
             chromEnd = str(ID_to_transcript_length[ID])
             name = "ID=" + ID + ";" + ";".join(description.split(" ")[1:])
-            print(name)
             score = str(int(ID_to_score[ID] * 1000)) # uses psauron score, range 0-1000 for bed file display
             strand = str(description[-2:-1])
             thickStart = str(description.split(":")[-1].split("-")[0])
