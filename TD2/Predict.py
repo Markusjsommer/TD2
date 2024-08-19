@@ -32,15 +32,13 @@ def get_args():
     parser.add_argument("--retain_blastp_hits",  type=str, required=False, help="blastp output in '-outfmt 6' format. Any ORF with a blastp match will be retained in the final output.")
     parser.add_argument("--retain_hmmer_hits",  type=str, required=False, help="domain table output file from running hmmer to search Pfam. Any ORF with a Pfam domain hit will be retained in the final output.")
     parser.add_argument("--retain_long_orfs_length",  type=int, required=False, help="retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding (default: 1000000, so essentially turned off by default.)", default=1000000)
-    parser.add_argument("--single_best_only",  type=str, required=False, help="Retain only the single best orf per transcript (prioritized by homology then orf length)")
+    parser.add_argument("--single_best_only",  type=str, required=False, help="retain only the single best orf per transcript (prioritized by homology then orf length)")
+    parser.add_argument("--retain_encapsulated",  action='store_true', help="report ORFs that are fully contained within larger ORFs, default=False")
     parser.add_argument("-O", dest="output_dir", type=str, required=False, help="same output directory from LongOrfs", default="./transcripts.TD2_dir")
     parser.add_argument("-G", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1", default=1)
     
     # TODO verbosity
-    parser.add_argument("-v", "--verbose", action='store_true', help="set -v for verbose output with progress bars, default=False", default=False)
-
-
-    # TODO start codon refinement with PWM? Is there anything better?
+    parser.add_argument("-v", "--verbose", action='store_true', help="verbose output with progress bars, default=False", default=False)
 
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
     return args
@@ -100,7 +98,6 @@ def main():
     # select transcripts based on psauron score
     df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and all(row[3:] < row['in_frame_score']), axis=1)]
     ID_psauron_selected = set([str(x.split(" ")[0]) for x in df_psauron_selected["description"]])
-    
     print(f"Done.")
     
     
@@ -160,6 +157,7 @@ def main():
     pep_strand_list = []
     pep_lowcoord_list = []
     pep_highcoord_list = []
+    pep_ID_to_info = dict()
     for d in pep_description_list:
         l = d.split(" ")
         ID = str(l[0][1:])
@@ -173,20 +171,7 @@ def main():
         pep_transcript_list.append(transcript)
         pep_lowcoord_list.append(lowcoord)
         pep_highcoord_list.append(highcoord)
-    
-    # group intervals by transcript
-    transcript_intervals = defaultdict(list)
-    for i, transcript in enumerate(pep_transcript_list):
-        transcript_intervals[transcript].append((pep_ID_list[i],
-                                                 (pep_lowcoord_list[i],
-                                                  pep_highcoord_list[i])))
-    
-    # find fully encapsulated ORFs
-    ID_encapsulated = set()
-    for transcript, intervals in transcript_intervals.items():
-        encapsulated = find_encapsulated_intervals(intervals)
-        ID_encapsulated.update(encapsulated)
-    print(f"Removing {len(ID_encapsulated):d} encapsulated ORFs", flush=True)
+        pep_ID_to_info[ID] = (transcript, lowcoord, highcoord)
     
     # write final outputs to current working directory
     basename = os.path.basename(args.transcripts)
@@ -194,26 +179,23 @@ def main():
     p_gff3_final = basename + ".TD2.gff3"
     p_cds_final = basename + ".TD2.cds"
     p_bed_final = basename + ".TD2.bed" # TODO bed file, probably better just to write gff then convert
-    print(f"Writing final output to current working directory", flush=True)
     
-    # pep fasta
-    ID_final = set() # IDs of all transcripts that pass filters
-    with open(p_pep, "rt") as f_pep, open(p_pep_final, "wt") as f_pep_final:
+    # ORF selection
+    ID_selected = set() # IDs of all transcripts that pass filters
+    ID_to_info = dict()
+    with open(p_pep, "rt") as f_pep:
         longorfs_pep = f_pep.readlines()
         description_list = []
-        seq_list = []
+        seq_list_pep = []
         for line in longorfs_pep:
             if line.startswith(">"):
                 description_list.append(line[1:])
             else:
-                seq_list.append(line)
+                seq_list_pep.append(line)
         # get ORF information
         for i, ORF in enumerate(description_list):
             s = ORF.split(" ")
             ID = str(s[0])
-            # discard encapsulated
-            if ID in ID_encapsulated:
-                continue
             # filter with psauron and homology
             if not ((ID in ID_psauron_selected) or (ID in hits_mmeseqs) or (ID in hits_blastp) or (ID in hits_hmmer)):
                 continue
@@ -223,16 +205,69 @@ def main():
             length = str(s[2].split(":")[1])
             location = s[-1].rstrip()
             strand = location[-3:]
+            
             # match TransDecoder output format
             description_line_final = ">" + ID + " GENE." + gene + "~~" + ID + "  ORF type:" + ORF_type + " " + strand + ",psauron_score=" + psauron_score + " len:" + length + " " + location + "\n"
-            f_pep_final.write(description_line_final)
-            seq = seq_list[i]
-            while len(seq) > 60:
-                f_pep_final.write(str(seq[:60]) + "\n")
-                seq = seq[60:]
-            f_pep_final.write(str(seq))
-            ID_final.add(ID)
+            seq_pep = seq_list_pep[i].rstrip()
             
+            # keep info of IDs that pass filters
+            info = (description_line_final, seq_pep)
+            ID_to_info[ID] = info
+            ID_selected.add(ID)
+    
+    # read cds
+    ID_to_cds = dict()
+    with open(p_cds, "rt") as f_cds:
+        longorfs_cds = f_cds.readlines()  
+        for line in longorfs_cds:
+            if line.startswith(">"):
+                ID = line.split(" ")[0][1:]
+            else:
+                seq_cds = line.rstrip()
+                ID_to_cds[ID] = seq_cds
+    
+    # remove encapsulated ORFs
+    if not args.retain_encapsulated:
+        # group intervals by transcript
+        transcript_intervals = defaultdict(list)
+        for ID in ID_selected:
+            transcript, lowcoord, highcoord = pep_ID_to_info[ID]
+            transcript_intervals[transcript].append((ID, (lowcoord, highcoord)))            
+        
+        # find fully encapsulated ORFs
+        ID_encapsulated = set()
+        for transcript, intervals in transcript_intervals.items():
+            encapsulated = find_encapsulated_intervals(intervals)
+            ID_encapsulated.update(encapsulated)
+        print(f"Removing {len(ID_encapsulated):d} encapsulated ORFs", flush=True)
+        
+        # remove from final set
+        ID_selected -= ID_encapsulated    
+    
+    
+    print(f"Writing final output to current working directory", flush=True)           
+    # pep and cds fasta
+    with open(p_pep_final, "wt") as f_pep_final, open(p_cds_final, "wt") as f_cds_final:
+        #for ID in ID_selected:
+        for ID in pep_ID_list:
+            if not ID in ID_selected:
+                continue
+                
+            # pep 
+            description, seq_pep = ID_to_info[ID]
+            f_pep_final.write(str(description))
+            while len(seq_pep) > 60:
+                f_pep_final.write(str(seq_pep[:60]) + "\n")
+                seq_pep = seq_pep[60:]
+            f_pep_final.write(str(seq_pep) + "\n")
+            
+            # cds
+            seq_cds = ID_to_cds[ID]
+            f_cds_final.write(str(description))
+            while len(seq_cds) > 60:
+                f_cds_final.write(str(seq_cds[:60]) + "\n")
+                seq_cds = seq_cds[60:]
+            f_cds_final.write(str(seq_cds) + "\n")
      
     # gff3
     with open(p_gff3, "rt") as f_gff3, open(p_gff3_final, "wt") as f_gff3_final:
@@ -252,16 +287,12 @@ def main():
                     ID = ""
         # write final gff3
         for ID, block in ID_to_block.items():
-            if ID in ID_final:
+            if ID in ID_selected:
                 f_gff3_final.write(block)
     
+    # bed
     
     
-    #with open(p_pep, "rt") as f_pep, open(p_gff3, "rt") as f_gff3, open(p_cds, "rt") as f_cds:
-        # open final output files
-     #   with open(p_pep_final, "wt") as f_pep_final, open(p_gff3_final, "wt") as f_gff3_final, open(p_cds_final, "wt") as f_cds_final:
-     #       for 
-     #       pass
     
 
     
