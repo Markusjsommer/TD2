@@ -54,7 +54,7 @@ make sure
 - can target lots of genomes with diff characteristics
     - Plasmodium
 - need to find where all the false positives are coming from
-    - randomized seqeunces
+    - randomized sequences
 - benchmark against other tools that operate in this area?
     - genemark's version of transdecoder? orfipy, getorf, orfM
 - run something like glimmer and prodigal, etc.(wait they don't work they target bacteria and they need training)
@@ -64,6 +64,11 @@ make sure
     - some non-housekeeping genes, esp short peptides (signaling, defense) are not found on homology searches
 - can try to properly predict things that have proteomic evidence -> data is frankly too noisy
     - try to address that in the paper, even if it doesn't work
+
+# todo
+[x] make alternative starts have M for complete ORFs (this is what is biologically correct), not 5' prime tho
+[x] implement the tsv file gene map thing
+[ ] 
 
 
 # Links
