@@ -389,7 +389,7 @@ def main():
                             orf_gene_seq = gene_seq[start-1:end] if strand == '+' else reverse_complement(gene_seq[end-1:start])
                             orf_prot_len = len(orf_prot_seq)
                             orf_type = orf[2]
-                            if alt_start and orf_type == 'complete' and orf_prot_seq[0] != 'M':
+                            if alt_start and orf_type in ['complete', '3prime_partial'] and orf_prot_seq[0] != 'M':
                                 orf_prot_seq = 'M' + orf_prot_seq[1:]
 
                             pep_header = f'>{name}.p{count} type:{orf_type} len:{orf_prot_len} gc:{gc_name} {name}:{start}-{end}({strand})'
@@ -461,7 +461,7 @@ def main():
                         orf_type = orf[2]
                         
                         # fix protein sequence to start with M if alt_start and complete orf
-                        if alt_start and orf_type == 'complete' and orf_prot_seq[0] != 'M':
+                        if alt_start and orf_type in ['complete', '3prime_partial'] and orf_prot_seq[0] != 'M':
                             orf_prot_seq = 'M' + orf_prot_seq[1:]
 
                         # write pep file

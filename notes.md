@@ -68,7 +68,7 @@ make sure
 # todo
 [x] make alternative starts have M for complete ORFs (this is what is biologically correct), not 5' prime tho
 [x] implement the tsv file gene map thing
-[ ] 
+[ ] report both 5' partial and complete ORF if they both exist
 
 
 # Links

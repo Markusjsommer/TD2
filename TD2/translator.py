@@ -52,10 +52,14 @@ class Translator:
             translations.append((f'{strand}{frame+1}', translated_sequence, initiator_positions, end_positions))
         return translations
     
-    def find_orfs(self, sequence, five_prime_partial=False, three_prime_partial=False):
+    def find_orfs(self, sequence, five_prime_partial=False, three_prime_partial=False, complete_first=True):
         '''
         Find complete open reading frames in the given sequence
-        Parameters: sequence (str): DNA/RNA sequence to analyze
+        Parameters: 
+        - sequence (str): DNA/RNA sequence to analyze
+        - five_prime_partial (bool): Include 5' partial ORFs
+        - three_prime_partial (bool): Include 3' partial ORFs
+        - complete_first (bool): Prioritize getting all complete ORFs
         Returns: str, List[Tuple[int, int]]: Translated protein sequence and list of ORFs (start, end) [0-indexed, 1-indexed] positions
         '''
         protein_sequence, start_positions, end_positions = self.translate(sequence)
@@ -81,7 +85,8 @@ class Translator:
         # check for 5' partial first -> first start is not at 0
         if five_prime_partial and start_positions[0] > 0:
             orfs.append((0, end_positions[0]+1, '5prime_partial'))
-            cur_pos = end_positions[end_index] # next orf will start after here
+            if not complete_first:
+                cur_pos = end_positions[end_index] # next orf will start after here
         
         # check for complete orfs
         while start_index < len(start_positions) and end_index < len(end_positions):
