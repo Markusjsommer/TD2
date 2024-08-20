@@ -23,7 +23,6 @@
     - what is the difference in output for prokaryote vs eukaryote
     
 
-
 # Questions
 - TransDecoder
     - is the output just one ORF, or like one for each transcript, or all ORFs, with a threshold?

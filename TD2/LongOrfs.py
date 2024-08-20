@@ -186,7 +186,7 @@ def get_genetic_code(table_num, alt_start):
     else:
         return ncbi_table_mapping[table_num].lower()
     
-def create_gff_block(gene_id, gene_length, prot_length, start, end, strand, count, orf_type):
+def create_gff_block(gene_id, gene_length, prot_length, start, end, strand, count, orf_type, transcript_gene_map=None):
     '''
     gene -> mRNA -> exon -> CDS (5'UTR, 3'UTR)
     gene_id\tTD2\tcomponent\tstart\tend\t.\tstrand\t.\tattributes
@@ -199,9 +199,13 @@ def create_gff_block(gene_id, gene_length, prot_length, start, end, strand, coun
         - 3'UTR ID=ORF_ID.utr3p1;Parent=ORF_ID
     separate handling based on complete, 5prime_partial, 3prime_partial, and internal
     '''
-
-    gene_line = f'{gene_id}\tTD2\tgene\t1\t{gene_length}\t.\t{strand}\t.\tID=GENE.{gene_id}~~{gene_id}.p{count};Name={gene_id} type:{orf_type} len:{prot_length} ({strand})'
-    mrna_line = f'{gene_id}\tTD2\tmRNA\t1\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count};Parent=GENE.{gene_id}~~{gene_id}.p{count};Name={gene_id} type:{orf_type} len:{prot_length} ({strand})'
+    if transcript_gene_map:
+        gene_acc = transcript_gene_map.get(gene_id, f'GENE.{gene_id}')
+    else:
+        gene_acc = f'GENE.{gene_id}'
+    
+    gene_line = f'{gene_id}\tTD2\tgene\t1\t{gene_length}\t.\t{strand}\t.\tID={gene_acc}~~{gene_id}.p{count};Name={gene_id} type:{orf_type} len:{prot_length} ({strand})'
+    mrna_line = f'{gene_id}\tTD2\tmRNA\t1\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count};Parent={gene_acc}~~{gene_id}.p{count};Name={gene_id} type:{orf_type} len:{prot_length} ({strand})'
     exon_line = f'{gene_id}\tTD2\texon\t1\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.exon1;Parent={gene_id}.p{count}'
 
     if orf_type == 'complete':
@@ -268,6 +272,7 @@ def main():
     complete_orfs_only = args.complete_orfs_only
     genetic_code = args.genetic_code
     alt_start = args.alt_start
+    gene_trans_map = args.gene_trans_map
     verbose = args.verbose # TODO: work on this at the end -> tqdm stuff
     threads = args.threads
     memory_threshold = args.memory_threshold
@@ -300,6 +305,16 @@ def main():
     
     # create translator object
     translator = Translator(table=genetic_code, alt_start=alt_start)
+    
+    # get transcript to gene mapping
+    if gene_trans_map:
+        with open(gene_trans_map, 'r') as f:
+            transcript_gene_map = {}
+            for line in f:
+                transcript_id, gene_id = line.strip().split('\t')
+                transcript_gene_map[transcript_id] = gene_id
+    else:
+        transcript_gene_map = None
     
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
     
@@ -375,7 +390,7 @@ def main():
 
                             pep_header = f'>{name}.p{count} type:{orf_type} len:{orf_prot_len} gc:{gc_name} {name}:{start}-{end}({strand})'
                             cds_header = f'>{name}.p{count} type:{orf_type} len:{orf_prot_len} {name}:{start}-{end}({strand})'
-                            gff_block = create_gff_block(name, gene_len, orf_prot_len, start, end, strand, count, orf_type)
+                            gff_block = create_gff_block(name, gene_len, orf_prot_len, start, end, strand, count, orf_type, transcript_gene_map)
 
                             results.append((pep_header, orf_prot_seq, cds_header, orf_gene_seq, gff_block))
 
@@ -450,7 +465,7 @@ def main():
                         f_cds.write(f'{cds_header}\n{orf_gene_seq}\n')
 
                         # write gff file
-                        f_gff3.write(create_gff_block(name, gene_len, orf_prot_len, start, end, strand, count, orf_type))
+                        f_gff3.write(create_gff_block(name, gene_len, orf_prot_len, start, end, strand, count, orf_type, transcript_gene_map))
                         
                         if top:
                             # keep track of the N(top) longest cds
