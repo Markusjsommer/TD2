@@ -59,7 +59,8 @@ def get_args():
     parser.add_argument("-m", "--min_length", dest="minimum_length", type=int, required=False, help="minimum protein length, default=100", default=100)
     parser.add_argument("-S", "--strand_specific", dest="strand_specific", action='store_true', required=False, help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
     parser.add_argument("-G", "--genetic_code", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1 (universal)", default=1)
-    parser.add_argument("-c", "--complete_orfs", dest="complete_orfs_only", action='store_true', required=False, help="set -c to yield only complete ORFs (peps start with Met (M), end with stop (*)), default=False", default=False)
+    # parser.add_argument("-c", "--complete_orfs", dest="complete_orfs_only", action='store_true', required=False, help="set -c to yield only complete ORFs (peps start with Met (M), end with stop (*)), default=False", default=False)
+    parser.add_argument("-i", "--incomplete_orfs", dest="incomplete_orfs", action='store_true', required=False, help="set -i to yield also consider incomplete ORFs (5' partial, 3' partial, internal), default=False", default=False)
     parser.add_argument("-@", "--threads", dest="threads", type=int, required=False, help="number of threads to use, default=1", default=1)
     parser.add_argument("-M", "--memory-threshold", dest="memory_threshold", type=float, required=False, help="percent available virtual memory to set as maximum before flushing to file, default=None", default=None)
     parser.add_argument("--alt-start", dest="alt_start", action='store_true', required=False, help="include alternative initiator codons from provided table, default=False", default=False)
@@ -271,7 +272,7 @@ def main():
     args = get_args()
     min_len_aa = args.minimum_length
     strand_specific = args.strand_specific
-    complete_orfs_only = args.complete_orfs_only
+    complete_orfs_only = not args.incomplete_orfs
     genetic_code = args.genetic_code
     alt_start = args.alt_start
     gene_trans_map = args.gene_trans_map
