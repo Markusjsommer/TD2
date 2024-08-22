@@ -70,6 +70,7 @@ make sure
 [x] implement the tsv file gene map thing
 [x] report both 5' partial and complete ORF if they both exist
 [x] consider complete ORFs only by default
+[] if orf below 100aa, can still consider if above 75% original transcript length. hard limit at 25aa
 
 
 # Links

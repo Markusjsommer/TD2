@@ -55,17 +55,18 @@ def get_args():
     required.add_argument("-t", dest="transcripts",  type=str, required=True, help="REQUIRED path to transcripts.fasta")
     
     # optional
-    parser.add_argument("-O", "--output_dir", dest="output_dir", type=str, required=False, help="path to output results, default=./transcripts.TD2_dir", default="./transcripts.TD2_dir")
-    parser.add_argument("-m", "--min_length", dest="minimum_length", type=int, required=False, help="minimum protein length, default=100", default=100)
-    parser.add_argument("-S", "--strand_specific", dest="strand_specific", action='store_true', required=False, help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
-    parser.add_argument("-G", "--genetic_code", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1 (universal)", default=1)
+    parser.add_argument("-O", "--output-dir", dest="output_dir", type=str, required=False, help="path to output results, default=./transcripts.TD2_dir", default="./transcripts.TD2_dir")
+    parser.add_argument("-m", "--min-length", dest="minimum_length", type=int, required=False, help="minimum protein length, default=100", default=100)
+    parser.add_argument("-M", "--absolute-min", dest="absolute_min", type=float, required=False, help="absolute minimum protein length for small proteins, default=25", default=25)
+    parser.add_argument("-S", "--strand-specific", dest="strand_specific", action='store_true', required=False, help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
+    parser.add_argument("-G", "--genetic-code", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1 (universal)", default=1)
     # parser.add_argument("-c", "--complete_orfs", dest="complete_orfs_only", action='store_true', required=False, help="set -c to yield only complete ORFs (peps start with Met (M), end with stop (*)), default=False", default=False)
-    parser.add_argument("-i", "--incomplete_orfs", dest="incomplete_orfs", action='store_true', required=False, help="set -i to yield also consider incomplete ORFs (5' partial, 3' partial, internal), default=False", default=False)
+    parser.add_argument("-i", "--incomplete-orfs", dest="incomplete_orfs", action='store_true', required=False, help="set -i to yield also consider incomplete ORFs (5' partial, 3' partial, internal), default=False", default=False)
     parser.add_argument("-@", "--threads", dest="threads", type=int, required=False, help="number of threads to use, default=1", default=1)
-    parser.add_argument("-M", "--memory-threshold", dest="memory_threshold", type=float, required=False, help="percent available virtual memory to set as maximum before flushing to file, default=None", default=None)
+    parser.add_argument("-%", "--memory-threshold", dest="memory_threshold", type=float, required=False, help="percent available virtual memory to set as maximum before flushing to file, default=None", default=None)
     parser.add_argument("--alt-start", dest="alt_start", action='store_true', required=False, help="include alternative initiator codons from provided table, default=False", default=False)
     parser.add_argument("--top", dest='top', type=int, required=False, help='set -top to also record the top N CDS transcripts by length, default=0', default=0)
-
+    
     # TODO gene to transcript mapping file
     parser.add_argument("--gene_trans_map", dest="gene_trans_map", type=str, required=False, help="gene-to-transcript identifier mapping file (tab-delimited, gene_id<tab>trans_id<newline>)")
     
@@ -135,10 +136,22 @@ def complement(seq):
     seq_complement = seq.translate(complement_table)
     return seq_complement
 
-def find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only):
+def filter_len(seq_len, orf_len, high, low, scale):
+    '''Filters out sequences based on dual length threshold, with a scaling factor between thresholds'''
+    if orf_len < low:
+        return False
+    elif orf_len >= high:
+        return True
+    else:
+        return orf_len >= scale * seq_len
+
+def find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only):
     '''Finds all open reading frames above minimum length threshold'''
     
     all_orf_list = []
+    
+    # get the minimum length scaling ratio
+    len_scale = float(abs_min_len_aa / min_len_aa)
     
     # determine whether to allow partial ORFs
     if complete_orfs_only:
@@ -153,7 +166,7 @@ def find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only):
         # print(seq[i:])
         sequence, orfs = translator.find_orfs(seq[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial)
         # print(sequence, orfs)
-        filtered_orfs = [orf for orf in orfs if orf[1] - orf[0] >= min_len_aa]
+        filtered_orfs = [orf for orf in orfs if filter_len(len(seq), orf[1] - orf[0], min_len_aa, abs_min_len_aa, len_scale)]
         all_orf_list.append((sequence, filtered_orfs, '+', i+1))
             
     # do reverse strand if not strand-specific
@@ -162,14 +175,14 @@ def find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only):
             # print(reverse_complement(seq)[i:])
             sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial)
             # print(sequence, orfs)
-            filtered_orfs = [orf for orf in orfs if orf[1] - orf[0] >= min_len_aa]
+            filtered_orfs = [orf for orf in orfs if filter_len(len(seq), orf[1] - orf[0], min_len_aa, abs_min_len_aa, len_scale)]
             all_orf_list.append((sequence, filtered_orfs, '-', i+1))
     
     return all_orf_list
 
-def find_ORFs_with_index(index, seq, translator, min_len_aa, strand_specific, complete_orfs_only):
+def find_ORFs_with_index(index, seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only):
     '''Finds all open reading frames above minimum length threshold and returns index with result (for multithreading)'''
-    orfs = find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only)
+    orfs = find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only)
     return index, orfs
 
 def calculate_start_end(orf, length, strand, frame):
@@ -271,6 +284,7 @@ def main():
     # parse command line arguments
     args = get_args()
     min_len_aa = args.minimum_length
+    abs_min_len_aa = args.absolute_min
     strand_specific = args.strand_specific
     complete_orfs_only = not args.incomplete_orfs
     genetic_code = args.genetic_code
@@ -366,11 +380,11 @@ def main():
                 batch_descriptions = description_list[batch_start:batch_end]
 
                 if threads == 1:
-                    batch_results = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in batch_seqs]
+                    batch_results = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only) for seq in batch_seqs]
                 else:
                     batch_results = [None] * len(batch_seqs)
                     with ProcessPoolExecutor(max_workers=threads) as executor:
-                        future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, strand_specific, complete_orfs_only): i for i, seq in enumerate(batch_seqs)}
+                        future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only): i for i, seq in enumerate(batch_seqs)}
                         for future in as_completed(future_to_index):
                             index, orfs = future.result()
                             batch_results[index] = orfs
@@ -420,12 +434,12 @@ def main():
         
         # find all ORFs using single thread
         if threads == 1:
-            seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
+            seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
         # use multithreading/multiprocessing
         else:
             seq_ORF_list = [None] * len(seq_list)  # list to hold results in order
             with ProcessPoolExecutor(max_workers=threads) as executor:
-                future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, strand_specific, complete_orfs_only): i for i, seq in enumerate(seq_list)}
+                future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only): i for i, seq in enumerate(seq_list)}
                 for future in as_completed(future_to_index):
                     index, orfs = future.result()
                     seq_ORF_list[index] = orfs  # place result at the correct index
