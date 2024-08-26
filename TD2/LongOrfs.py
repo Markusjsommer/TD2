@@ -151,7 +151,9 @@ def find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, strand_specific, comp
     all_orf_list = []
     
     # get the minimum length scaling ratio
-    len_scale = float(abs_min_len_aa / min_len_aa)
+    #len_scale = float(abs_min_len_aa / min_len_aa)
+    len_scale = 0.5 / 3 # seq is nucleotides so needs to be divided by 3
+    # TODO make this a command line arg 
     
     # determine whether to allow partial ORFs
     if complete_orfs_only:

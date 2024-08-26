@@ -85,19 +85,25 @@ def main():
     p_cds = os.path.join(output_dir, "longest_orfs.cds")
     p_score = os.path.join(output_dir, "psauron_score.csv")
     if args.verbose:
-        command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-v"]
+        #command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-v"]
+        command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-v", "-s"]
         result_psauron = subprocess.run(command_psauron, capture_output=False, text=True)
     else:
-        command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff)]
+        #command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff)]
+        command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-s"]
         result_psauron = subprocess.run(command_psauron, capture_output=True, text=True)
     
     # load psauron results
-    df_psauron = pandas.read_csv(p_score, skiprows=3)
+    #df_psauron = pandas.read_csv(p_score, skiprows=3)
+    df_psauron = pandas.read_csv(p_score, skiprows=2)
+    #ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
+    #                       df_psauron["in_frame_score"]))
     ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
-                              df_psauron["in_frame_score"]))
+                           df_psauron["in-frame_score"])) # TODO this is a bug in the -s mode for psauron, fix this in psauron
     
     # select transcripts based on psauron score
-    df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and all(row[3:] < row['in_frame_score']), axis=1)]
+    #df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and all(row[3:] < row['in_frame_score']), axis=1)]
+    df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in-frame_score'] > psauron_cutoff, axis=1)]
     ID_psauron_selected = set([str(x.split(" ")[0]) for x in df_psauron_selected["description"]])
     print(f"Done.")
     
