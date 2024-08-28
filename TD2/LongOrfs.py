@@ -55,7 +55,7 @@ def get_args():
     required.add_argument("-t", dest="transcripts",  type=str, required=True, help="REQUIRED path to transcripts.fasta")
     
     # optional
-    parser.add_argument("-O", "--output-dir", dest="output_dir", type=str, required=False, help="path to output results, default=./transcripts.TD2_dir", default="./transcripts.TD2_dir")
+    parser.add_argument("-O", "--output-dir", dest="output_dir", type=str, required=False, help="path to output results, default=./{transcripts}.TD2_dir", default="./transcripts.TD2_dir")
     parser.add_argument("-m", "--min-length", dest="minimum_length", type=int, required=False, help="minimum protein length, default=100", default=100)
     parser.add_argument("-M", "--absolute-min", dest="absolute_min", type=float, required=False, help="absolute minimum protein length for small proteins, default=25", default=25)
     parser.add_argument("-S", "--strand-specific", dest="strand_specific", action='store_true', required=False, help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
@@ -298,8 +298,12 @@ def main():
     top = args.top
     
     # create working dir and define output filepaths
-    output_dir = os.path.abspath(args.output_dir)
-
+    if args.output_dir == "./transcripts.TD2_dir":
+        p_transcripts = os.path.abspath(args.transcripts)
+        output_dir = os.path.splitext(os.path.basename(p_transcripts))[0]
+    else:
+        output_dir = os.path.abspath(args.output_dir)
+        
     p_pep = os.path.join(output_dir, "longest_orfs.pep")
     p_gff3 = os.path.join(output_dir, "longest_orfs.gff3")
     p_cds = os.path.join(output_dir, "longest_orfs.cds")
@@ -316,7 +320,7 @@ def main():
         print("Writing to", output_dir, flush=True)
     else:
         if all(os.path.exists(path) for path in path_list):
-            print("Output files already exist. Exiting...", flush=True)
+            print("Output directory already exists. Exiting...", flush=True)
             sys.exit(0)
 
     # load FASTA

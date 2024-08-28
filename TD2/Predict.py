@@ -78,7 +78,11 @@ def main():
     psauron_cutoff = args.psauron_cutoff
     
     # use absolute path of output
-    output_dir = os.path.abspath(args.output_dir)    
+    if args.output_dir == "./transcripts.TD2_dir":
+        p_transcripts = os.path.abspath(args.transcripts)
+        output_dir = os.path.splitext(os.path.basename(p_transcripts))[0]
+    else:
+        output_dir = os.path.abspath(args.output_dir) 
     
     # run psauron to score ORFs
     print(f"Step 1: Running PSAURON", flush=True)
@@ -99,7 +103,7 @@ def main():
     #ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
     #                       df_psauron["in_frame_score"]))
     ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
-                           df_psauron["in-frame_score"])) # TODO this is a bug in the -s mode for psauron, fix this in psauron
+                           df_psauron["in-frame_score"])) # this is a bug in the -s mode for psauron, TODO fix this in psauron
     
     # select transcripts based on psauron score
     #df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and all(row[3:] < row['in_frame_score']), axis=1)]
