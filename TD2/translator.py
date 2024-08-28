@@ -2,16 +2,14 @@ import json
 import pkg_resources
 
 class Translator:
-    def __init__(self, table=1, three_letter=False, m_start=False):
+    def __init__(self, table=1, three_letter=False, alt_start=False):
         if table not in legal_tables():
             raise ValueError(f"Table {table} is not a legal table")
         if table in stopless_tables():
             print(f"[WARNING] Table {table} does not contain stop codons")
         self.table_num = table
-        self.table, self.initiators = load_translation_table(table)
+        self.table, self.initiators = load_translation_table(table, alt_start)
         self.three_letter = three_letter
-        if m_start is True: # sets M as the sole initiator
-            self.initiators = ['ATG']
     
     def translate(self, sequence):
         '''
@@ -54,10 +52,14 @@ class Translator:
             translations.append((f'{strand}{frame+1}', translated_sequence, initiator_positions, end_positions))
         return translations
     
-    def find_orfs(self, sequence, five_prime_partial=False, three_prime_partial=False):
+    def find_orfs(self, sequence, five_prime_partial=False, three_prime_partial=False, complete_first=True):
         '''
         Find complete open reading frames in the given sequence
-        Parameters: sequence (str): DNA/RNA sequence to analyze
+        Parameters: 
+        - sequence (str): DNA/RNA sequence to analyze
+        - five_prime_partial (bool): Include 5' partial ORFs
+        - three_prime_partial (bool): Include 3' partial ORFs
+        - complete_first (bool): Prioritize getting all complete ORFs
         Returns: str, List[Tuple[int, int]]: Translated protein sequence and list of ORFs (start, end) [0-indexed, 1-indexed] positions
         '''
         protein_sequence, start_positions, end_positions = self.translate(sequence)
@@ -83,7 +85,8 @@ class Translator:
         # check for 5' partial first -> first start is not at 0
         if five_prime_partial and start_positions[0] > 0:
             orfs.append((0, end_positions[0]+1, '5prime_partial'))
-            cur_pos = end_positions[end_index] # next orf will start after here
+            if not complete_first:
+                cur_pos = end_positions[end_index] # next orf will start after here
         
         # check for complete orfs
         while start_index < len(start_positions) and end_index < len(end_positions):
@@ -112,12 +115,15 @@ def standardize_sequence(sequence):
     dna = dna.replace('U', 'T') # replaces U with T in case of RNA
     return dna
 
-def load_translation_table(table_num=1):
+def load_translation_table(table_num=1, alt_start=False):
     '''Get the corresponding translation table for the genetic code'''
     path_table = pkg_resources.resource_filename(__name__, f'tables/table_{table_num}.json')
     with open(path_table, 'r') as file:
         data = json.load(file)
-    return data['codons'], data['initiators']
+    if not alt_start:
+        return data['codons'], data['initiators']
+    else: 
+        return data['codons'], data['complete_initiators']
 
 def legal_letters():
     return {

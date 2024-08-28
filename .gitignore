@@ -6,3 +6,9 @@ dist/
 *.pyc
 data/
 results/
+*.log
+*.diff
+profile*
+pipeliner*
+.DS_Store
+.gitmodules

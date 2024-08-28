@@ -23,7 +23,6 @@
     - what is the difference in output for prokaryote vs eukaryote
     
 
-
 # Questions
 - TransDecoder
     - is the output just one ORF, or like one for each transcript, or all ORFs, with a threshold?
@@ -41,6 +40,37 @@
     - is it worth it to encode the dna sequence into 2 bit to make it marginally faster? -> benchmark
     - we are assuming orfs are non-overlapping, right? the current logic of the finder is maximized for efficiency using this assumption
     - what does the -c option mean? complete orfs are default?
+
+# meeting notes w brian
+
+- look at gc content for different organisms 
+- also have a more complex start codon prediction (not a huge change overall but some are downstream)
+- uses diamondblast to do the homology search
+- usually go with UniRef90 as the database matching
+- openBSD license?
+
+make sure
+- broad applications think of ways this could be used
+- can target lots of genomes with diff characteristics
+    - Plasmodium
+- need to find where all the false positives are coming from
+    - randomized sequences
+- benchmark against other tools that operate in this area?
+    - genemark's version of transdecoder? orfipy, getorf, orfM
+- run something like glimmer and prodigal, etc.(wait they don't work they target bacteria and they need training)
+- how small a peptide can you go? -> if you can demonstrate shorter peptide prediction accurately, that'd be a huge win
+- the homology thing is kind of a cheat -> it's a catch-all, can fine-tune all the way, but it's not like de novo
+    - want to be able to predict based on the sequence itself
+    - some non-housekeeping genes, esp short peptides (signaling, defense) are not found on homology searches
+- can try to properly predict things that have proteomic evidence -> data is frankly too noisy
+    - try to address that in the paper, even if it doesn't work
+
+# todo
+[x] make alternative starts have M for complete ORFs (this is what is biologically correct), not 5' prime tho
+[x] implement the tsv file gene map thing
+[x] report both 5' partial and complete ORF if they both exist
+[x] consider complete ORFs only by default
+[] if orf below 100aa, can still consider if above 75% original transcript length. hard limit at 25aa
 
 
 # Links

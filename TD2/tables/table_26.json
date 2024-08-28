@@ -3,6 +3,12 @@
     "ATG",
     "CTG"
   ],
+  "complete_initiators": [
+    "ATG",
+    "CTG",
+    "GTG",
+    "TTG"
+  ],
   "codons": {
     "AAA": "K",
     "AAC": "N",
