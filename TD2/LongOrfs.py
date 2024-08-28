@@ -435,7 +435,7 @@ def main():
 
     #### STANDARD MODE ####
     else:
-        print(f"Step 2: Finding all ORFs with protein length >= {min_len_aa}...", flush=True)
+        print(f"Step 2: Finding ORFs...", flush=True)
         start_time = time.time()
         
         # find all ORFs using single thread
@@ -459,7 +459,6 @@ def main():
         start_time = time.time() 
         
         # write all peps and cds to file
-        # TODO limit sequence lines to 80
         with open(p_pep, "wt") as f_pep, open(p_gff3, "wt") as f_gff3, open(p_cds, "wt") as f_cds:
             
             gc_name = get_genetic_code(genetic_code, alt_start)
