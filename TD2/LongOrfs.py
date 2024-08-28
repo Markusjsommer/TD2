@@ -68,7 +68,7 @@ def get_args():
     parser.add_argument("--top", dest='top', type=int, required=False, help='set -top to also record the top N CDS transcripts by length, default=0', default=0)
     
     # TODO gene to transcript mapping file
-    parser.add_argument("--gene_trans_map", dest="gene_trans_map", type=str, required=False, help="gene-to-transcript identifier mapping file (tab-delimited, gene_id<tab>trans_id<newline>)")
+    parser.add_argument("--gene-trans-map", dest="gene_trans_map", type=str, required=False, help="gene-to-transcript identifier mapping file (tab-delimited, gene_id<tab>trans_id<newline>)")
     
     # TODO verbosity
     parser.add_argument("-v", "--verbose", action='store_true', help="set -v for verbose output with progress bars, default=False", default=False)

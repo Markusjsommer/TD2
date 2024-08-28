@@ -28,13 +28,13 @@ def get_args():
     
     # optional
     parser.add_argument("-P", dest="psauron_cutoff", type=float, required=False, help="minimum in-frame PSAURON score required to report ORF, assuming no homology hits (range: [0,1]; default: 0.25)", default=0.25)
-    parser.add_argument("--retain_mmseqs_hits",  type=str, required=False, help="mmseqs output in '.m8' format. Complete ORFs with a MMseqs2 match will be retained in the final output.")
-    parser.add_argument("--retain_blastp_hits",  type=str, required=False, help="blastp output in '-outfmt 6' format. Complete ORFs with a blastp match will be retained in the final output.")
-    parser.add_argument("--retain_hmmer_hits",  type=str, required=False, help="domain table output file from running hmmer to search Pfam. Complete ORFs with a Pfam domain hit will be retained in the final output.")
-    parser.add_argument("--retain_long_orfs_length",  type=int, required=False, help="retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding (default: 1000000, so essentially turned off by default.)", default=1000000)
-    parser.add_argument("--single_best_only",  type=str, required=False, help="retain only the single best orf per transcript (prioritized by homology then orf length)")
-    parser.add_argument("--retain_encapsulated",  action='store_true', help="retain ORFs that are fully contained within larger ORFs, default=False")
-    parser.add_argument("--retain_partial",  action='store_true', help="retain 5' and 3' partial ORFs (may cause correct complete ORFs to be missed), default=False")
+    parser.add_argument("--retain-mmseqs-hits",  type=str, required=False, help="mmseqs output in '.m8' format. Complete ORFs with a MMseqs2 match will be retained in the final output.")
+    parser.add_argument("--retain-blastp_hits",  type=str, required=False, help="blastp output in '-outfmt 6' format. Complete ORFs with a blastp match will be retained in the final output.")
+    parser.add_argument("--retain-hmmer_hits",  type=str, required=False, help="domain table output file from running hmmer to search Pfam. Complete ORFs with a Pfam domain hit will be retained in the final output.")
+    parser.add_argument("--retain-long-orfs-length",  type=int, required=False, help="retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding (default: 1000000, so essentially turned off by default.)", default=1000000)
+    parser.add_argument("--single-best-only",  type=str, required=False, help="retain only the single best orf per transcript (prioritized by homology then orf length)")
+    parser.add_argument("--retain-encapsulated",  action='store_true', help="retain ORFs that are fully contained within larger ORFs, default=False")
+    parser.add_argument("--retain-partial",  action='store_true', help="retain 5' and 3' partial ORFs (may cause correct complete ORFs to be missed), default=False")
     parser.add_argument("-O", dest="output_dir", type=str, required=False, help="same output directory from LongOrfs", default="./transcripts.TD2_dir")
     parser.add_argument("-G", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1", default=1)
     
