@@ -27,7 +27,7 @@ def get_args():
     required.add_argument("-t", dest="transcripts",  type=str, required=True, help="REQUIRED path to transcripts.fasta")
     
     # optional
-    parser.add_argument("-P", dest="psauron_cutoff", type=float, required=False, help="minimum in-frame PSAURON score required to report ORF, assuming no homology hits (range: [0,1]; default: 0.25), higher is less sensitive and more precise", default=0.25)
+    parser.add_argument("-P", dest="psauron_cutoff", type=float, required=False, help="minimum in-frame PSAURON score required to report ORF assuming no homology hits, higher is less sensitive and more precise (range: [0,1]; default: 0.25)", default=0.25)
     parser.add_argument("--single-best-only", action='store_true', help="retain only the single best ORF per transcript (prioritized by homology then ORF length), default=False")
     parser.add_argument("--retain-mmseqs-hits", type=str, required=False, help="mmseqs output in '.m8' format. Complete ORFs with a MMseqs2 match will be retained in the final output.")
     parser.add_argument("--retain-blastp_hits", type=str, required=False, help="blastp output in '-outfmt 6' format. Complete ORFs with a blastp match will be retained in the final output.")
@@ -35,7 +35,7 @@ def get_args():
     parser.add_argument("--retain-long-orfs-length", type=int, required=False, help="retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding (default: 1000000, so essentially turned off by default.)", default=1000000)
     parser.add_argument("--retain-encapsulated", action='store_true', help="retain ORFs that are fully contained within larger ORFs, default=False")
     parser.add_argument("--retain-partial", action='store_true', help="retain 5' and 3' partial ORFs (may cause correct complete ORFs to be missed), default=False")
-    parser.add_argument("--psauron-all-frame", action='store_true', help="require a low mean out-of-frame PSAURON score, default=False, set to for less sensitive and more precise ORFs")
+    parser.add_argument("--psauron-all-frame", action='store_true', help="require ORF to have highest PSAURON score compared to all other reading frames, set this argument for less sensitive and more precise ORFs, default=False")
 
     parser.add_argument("-G", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1", default=1)
     parser.add_argument("-O", dest="output_dir", type=str, required=False, help="same output directory from LongOrfs", default="./transcripts.TD2_dir")
@@ -91,25 +91,30 @@ def main():
     p_cds = os.path.join(output_dir, "longest_orfs.cds")
     p_score = os.path.join(output_dir, "psauron_score.csv")
     if args.verbose:
-        #command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-v"]
-        command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-v", "-s"]
+        if args.psauron_all_frame:
+            command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-v"]
+        else:
+            command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-v", "-s"]
         result_psauron = subprocess.run(command_psauron, capture_output=False, text=True)
     else:
-        #command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff)]
-        command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-s"]
+        if args.psauron_all_frame:
+            command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff)]
+        else:
+            command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-s"]
         result_psauron = subprocess.run(command_psauron, capture_output=True, text=True)
     
     # load psauron results
-    #df_psauron = pandas.read_csv(p_score, skiprows=3)
-    df_psauron = pandas.read_csv(p_score, skiprows=2)
-    #ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
-    #                       df_psauron["in_frame_score"]))
-    ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
-                           df_psauron["in-frame_score"])) # this is a bug in the -s mode for psauron, TODO fix this in psauron
+    if args.psauron_all_frame:
+        df_psauron = pandas.read_csv(p_score, skiprows=3)
+        ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
+                                df_psauron["in_frame_score"]))
+        df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and all(row[3:] < row['in_frame_score']), axis=1)]
+    else:
+        df_psauron = pandas.read_csv(p_score, skiprows=2)
+        ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
+                                df_psauron["in-frame_score"])) # this "-" is a bug in the -s mode for psauron, TODO fix this in psauron
+        df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in-frame_score'] > psauron_cutoff, axis=1)]
     
-    # select transcripts based on psauron score
-    #df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and all(row[3:] < row['in_frame_score']), axis=1)]
-    df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in-frame_score'] > psauron_cutoff, axis=1)]
     ID_psauron_selected = set([str(x.split(" ")[0]) for x in df_psauron_selected["description"]])
     print(f"Done.")
     
