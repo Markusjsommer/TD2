@@ -58,6 +58,7 @@ def get_args():
     parser.add_argument("-O", "--output-dir", dest="output_dir", type=str, required=False, help="path to output results, default=./{transcripts}.TD2_dir", default="./transcripts.TD2_dir")
     parser.add_argument("-m", "--min-length", dest="minimum_length", type=int, required=False, help="minimum protein length, default=100", default=100)
     parser.add_argument("-M", "--absolute-min", dest="absolute_min", type=float, required=False, help="absolute minimum protein length for small proteins, default=25", default=25)
+    parser.add_argument("-L", "--length-scale", dest="len_scale", type=float, required=False, help="scaling factor for minimum length threshold, default=0.5", default=0.5)
     parser.add_argument("-S", "--strand-specific", dest="strand_specific", action='store_true', required=False, help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
     parser.add_argument("-G", "--genetic-code", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1 (universal)", default=1)
     # parser.add_argument("-c", "--complete_orfs", dest="complete_orfs_only", action='store_true', required=False, help="set -c to yield only complete ORFs (peps start with Met (M), end with stop (*)), default=False", default=False)
@@ -143,17 +144,12 @@ def filter_len(seq_len, orf_len, high, low, scale):
     elif orf_len >= high:
         return True
     else:
-        return orf_len >= scale * seq_len
+        return orf_len >= scale * seq_len / 3 # seq is nucleotides so needs to be divided by 3
 
-def find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only):
+def find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only):
     '''Finds all open reading frames above minimum length threshold'''
     
     all_orf_list = []
-    
-    # get the minimum length scaling ratio
-    #len_scale = float(abs_min_len_aa / min_len_aa)
-    len_scale = 0.5 / 3 # seq is nucleotides so needs to be divided by 3
-    # TODO make this a command line arg 
     
     # determine whether to allow partial ORFs
     if complete_orfs_only:
@@ -182,9 +178,9 @@ def find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, strand_specific, comp
     
     return all_orf_list
 
-def find_ORFs_with_index(index, seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only):
+def find_ORFs_with_index(index, seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only):
     '''Finds all open reading frames above minimum length threshold and returns index with result (for multithreading)'''
-    orfs = find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only)
+    orfs = find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only)
     return index, orfs
 
 def calculate_start_end(orf, length, strand, frame):
@@ -287,6 +283,7 @@ def main():
     args = get_args()
     min_len_aa = args.minimum_length
     abs_min_len_aa = args.absolute_min
+    len_scale = args.len_scale
     strand_specific = args.strand_specific
     complete_orfs_only = not args.incomplete_orfs
     genetic_code = args.genetic_code
@@ -386,11 +383,11 @@ def main():
                 batch_descriptions = description_list[batch_start:batch_end]
 
                 if threads == 1:
-                    batch_results = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only) for seq in batch_seqs]
+                    batch_results = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only) for seq in batch_seqs]
                 else:
                     batch_results = [None] * len(batch_seqs)
                     with ProcessPoolExecutor(max_workers=threads) as executor:
-                        future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only): i for i, seq in enumerate(batch_seqs)}
+                        future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only): i for i, seq in enumerate(batch_seqs)}
                         for future in as_completed(future_to_index):
                             index, orfs = future.result()
                             batch_results[index] = orfs
@@ -440,12 +437,12 @@ def main():
         
         # find all ORFs using single thread
         if threads == 1:
-            seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only) for seq in seq_list]
+            seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only) for seq in seq_list]
         # use multithreading/multiprocessing
         else:
             seq_ORF_list = [None] * len(seq_list)  # list to hold results in order
             with ProcessPoolExecutor(max_workers=threads) as executor:
-                future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, abs_min_len_aa, strand_specific, complete_orfs_only): i for i, seq in enumerate(seq_list)}
+                future_to_index = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only): i for i, seq in enumerate(seq_list)}
                 for future in as_completed(future_to_index):
                     index, orfs = future.result()
                     seq_ORF_list[index] = orfs  # place result at the correct index
