@@ -57,23 +57,23 @@ def get_args():
     # optional
     parser.add_argument("-O", "--output-dir", dest="output_dir", type=str, required=False, help="path to output results, default=./{transcripts}.TD2_dir", default="./transcripts.TD2_dir")
     parser.add_argument("-m", "--min-length", dest="minimum_length", type=int, required=False, help="minimum protein length, default=100", default=100)
-    parser.add_argument("-M", "--absolute-min", dest="absolute_min", type=float, required=False, help="absolute minimum protein length for small proteins, default=25", default=25)
-    parser.add_argument("-L", "--length-scale", dest="len_scale", type=float, required=False, help="scaling factor for minimum length threshold, default=0.5", default=0.5)
+    parser.add_argument("-M", "--absolute-min-length", dest="absolute_min", type=float, required=False, help="absolute minimum protein length for small proteins, default=25", default=25)
+    parser.add_argument("-L", "--length-scale", dest="len_scale", type=float, required=False, help="allow short ORFs if they are at least a fraction of the total transcript length, default=0.8 (set to any number greater than 1 to disable this)", default=0.8)
     parser.add_argument("-S", "--strand-specific", dest="strand_specific", action='store_true', required=False, help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
     parser.add_argument("-G", "--genetic-code", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1 (universal)", default=1)
-    # parser.add_argument("-c", "--complete_orfs", dest="complete_orfs_only", action='store_true', required=False, help="set -c to yield only complete ORFs (peps start with Met (M), end with stop (*)), default=False", default=False)
     parser.add_argument("-i", "--incomplete-orfs", dest="incomplete_orfs", action='store_true', required=False, help="set -i to yield also consider incomplete ORFs (5' partial, 3' partial, internal), default=False", default=False)
-    parser.add_argument("-@", "--threads", dest="threads", type=int, required=False, help="number of threads to use, default=1", default=1)
-    parser.add_argument("-%", "--memory-threshold", dest="memory_threshold", type=float, required=False, help="percent available virtual memory to set as maximum before flushing to file, default=None", default=None)
     parser.add_argument("--alt-start", dest="alt_start", action='store_true', required=False, help="include alternative initiator codons from provided table, default=False", default=False)
     parser.add_argument("--top", dest='top', type=int, required=False, help='set -top to also record the top N CDS transcripts by length, default=0', default=0)
     
-    # TODO gene to transcript mapping file
+    # TODO validate gene to transcript mapping file
     parser.add_argument("--gene-trans-map", dest="gene_trans_map", type=str, required=False, help="gene-to-transcript identifier mapping file (tab-delimited, gene_id<tab>trans_id<newline>)")
     
-    # TODO verbosity
+    # TODO make verbosity better
     parser.add_argument("-v", "--verbose", action='store_true', help="set -v for verbose output with progress bars, default=False", default=False)
-
+    
+    parser.add_argument("-%", "--memory-threshold", dest="memory_threshold", type=float, required=False, help="percent available virtual memory to set as maximum before flushing to file, default=None", default=None)
+    parser.add_argument("-@", "--threads", dest="threads", type=int, required=False, help="number of threads to use, default=1", default=1)
+    
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help']) # prints help message if no args are provided by user
     return args
 
