@@ -182,7 +182,7 @@ def main():
     for d in pep_description_list:
         l = d.split(" ")
         ID = str(l[0][1:])
-        transcript = str(l[-1].split(":")[0])
+        transcript = str(":".join(l[-1].split(":")[:-1]))
         coords = str(l[-1].split(":")[-1][:-4])
         coords_int = [int(x) for x in coords.split("-")]
         lowcoord = min(coords_int)
