@@ -27,16 +27,18 @@ def get_args():
     required.add_argument("-t", dest="transcripts",  type=str, required=True, help="REQUIRED path to transcripts.fasta")
     
     # optional
-    parser.add_argument("-P", dest="psauron_cutoff", type=float, required=False, help="minimum in-frame PSAURON score required to report ORF, assuming no homology hits (range: [0,1]; default: 0.25)", default=0.25)
-    parser.add_argument("--retain-mmseqs-hits",  type=str, required=False, help="mmseqs output in '.m8' format. Complete ORFs with a MMseqs2 match will be retained in the final output.")
-    parser.add_argument("--retain-blastp_hits",  type=str, required=False, help="blastp output in '-outfmt 6' format. Complete ORFs with a blastp match will be retained in the final output.")
-    parser.add_argument("--retain-hmmer_hits",  type=str, required=False, help="domain table output file from running hmmer to search Pfam. Complete ORFs with a Pfam domain hit will be retained in the final output.")
-    parser.add_argument("--retain-long-orfs-length",  type=int, required=False, help="retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding (default: 1000000, so essentially turned off by default.)", default=1000000)
-    parser.add_argument("--single-best-only",  type=str, required=False, help="retain only the single best orf per transcript (prioritized by homology then orf length)")
-    parser.add_argument("--retain-encapsulated",  action='store_true', help="retain ORFs that are fully contained within larger ORFs, default=False")
-    parser.add_argument("--retain-partial",  action='store_true', help="retain 5' and 3' partial ORFs (may cause correct complete ORFs to be missed), default=False")
-    parser.add_argument("-O", dest="output_dir", type=str, required=False, help="same output directory from LongOrfs", default="./transcripts.TD2_dir")
+    parser.add_argument("-P", dest="psauron_cutoff", type=float, required=False, help="minimum in-frame PSAURON score required to report ORF, assuming no homology hits (range: [0,1]; default: 0.25), higher is less sensitive and more precise", default=0.25)
+    parser.add_argument("--single-best-only", action='store_true', help="retain only the single best ORF per transcript (prioritized by homology then ORF length), default=False")
+    parser.add_argument("--retain-mmseqs-hits", type=str, required=False, help="mmseqs output in '.m8' format. Complete ORFs with a MMseqs2 match will be retained in the final output.")
+    parser.add_argument("--retain-blastp_hits", type=str, required=False, help="blastp output in '-outfmt 6' format. Complete ORFs with a blastp match will be retained in the final output.")
+    parser.add_argument("--retain-hmmer_hits", type=str, required=False, help="domain table output file from running hmmer to search Pfam. Complete ORFs with a Pfam domain hit will be retained in the final output.")
+    parser.add_argument("--retain-long-orfs-length", type=int, required=False, help="retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding (default: 1000000, so essentially turned off by default.)", default=1000000)
+    parser.add_argument("--retain-encapsulated", action='store_true', help="retain ORFs that are fully contained within larger ORFs, default=False")
+    parser.add_argument("--retain-partial", action='store_true', help="retain 5' and 3' partial ORFs (may cause correct complete ORFs to be missed), default=False")
+    parser.add_argument("--psauron-all-frame", action='store_true', help="require a low mean out-of-frame PSAURON score, default=False, set to for less sensitive and more precise ORFs")
+
     parser.add_argument("-G", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1", default=1)
+    parser.add_argument("-O", dest="output_dir", type=str, required=False, help="same output directory from LongOrfs", default="./transcripts.TD2_dir")
     
     # TODO verbosity
     parser.add_argument("-v", "--verbose", action='store_true', help="verbose output with progress bars, default=False", default=False)
@@ -281,6 +283,43 @@ def main():
         # remove from final set
         ID_selected -= ID_encapsulated    
     
+    # keep only one ORF per transcript
+    # prioritizes homology, then ORF length
+    if args.single_best_only:
+        transcript_to_ID_info = dict()
+        ID_not_single_best = set()
+        for ID in ID_selected:
+            transcript, lowcoord, highcoord = pep_ID_to_info[ID]
+            length = highcoord - lowcoord + 1
+            homology = any([ID in hits_blastp,
+                            ID in hits_hmmer,
+                            ID in hits_mmeseqs])
+            info = (ID, homology, length)
+            # will keep longest ORF with any homology hit
+            if transcript in transcript_to_ID_info:
+                info_stored = transcript_to_ID_info[transcript]
+                if info[1] and info_stored[1]: # both have homology
+                    if info[2] > info_stored[2]: # keep longer ORF
+                        transcript_to_ID_info[transcript] = info
+                        ID_not_single_best.add(info_stored[0]) # remove shorter ORF
+                    else:
+                        ID_not_single_best.add(info[0]) # remove shorter ORF
+                elif info[1] and not info_stored[1]: 
+                    transcript_to_ID_info[transcript] = info # keep ORF with homology
+                    ID_not_single_best.add(info_stored[0])# remove ORF with no homology
+                elif not info[1] and  info_stored[1]:
+                    ID_not_single_best.add(info[0])# remove ORF with no homology
+                elif not info[1] and not info_stored[1]:
+                    if info[2] > info_stored[2]: # keep longer ORF
+                        transcript_to_ID_info[transcript] = info
+                        ID_not_single_best.add(info_stored[0]) # remove shorter ORF
+                    else:
+                        ID_not_single_best.add(info[0]) # remove shorter ORF
+            else:
+                transcript_to_ID_info[transcript] = info
+                
+        # remove from final set
+        ID_selected -= ID_not_single_best   
     
     print(f"Writing final output to current working directory", flush=True)           
     # pep and cds fasta
