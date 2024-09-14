@@ -108,6 +108,9 @@ def main():
         df_psauron = pandas.read_csv(p_score, skiprows=3)
         ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
                                 df_psauron["in_frame_score"]))
+        # PSAURON style out-of-frame
+        #df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and np.mean(row[3:]) < psauron_cutoff, axis=1)]
+        # TransDecoder style out-of-frame
         df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and all(row[3:] < row['in_frame_score']), axis=1)]
     else:
         df_psauron = pandas.read_csv(p_score, skiprows=2)
@@ -194,7 +197,7 @@ def main():
         coords_int = [int(x) for x in coords.split("-")]
         lowcoord = min(coords_int)
         highcoord = max(coords_int)
-        if ("5prime_partial" in d) or ("3prime_partial" in d):
+        if ("5prime_partial" in d) or ("3prime_partial" in d) or ("ORF type:internal" in d):
             partial = True
         else:
             partial = False
