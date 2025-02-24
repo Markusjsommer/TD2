@@ -32,6 +32,7 @@ setup(
     python_requires=">=3.8",
     entry_points={
         'console_scripts': [
+            'TD2 = TD2.help:main', 
             'TD2.LongOrfs = TD2.LongOrfs:main',
             'TD2.Predict = TD2.Predict:main',
         ],
