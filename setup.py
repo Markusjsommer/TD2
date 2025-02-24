@@ -14,6 +14,7 @@ setup(
     author="markus",
     author_email = "markusjsommer@gmail.com",
     license="MIT",
+    license_files=["LICENSE.txt"],
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.11",
