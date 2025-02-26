@@ -2,6 +2,7 @@ import os
 import sys
 import gzip
 import copy
+import math
 import time
 import pandas
 import pickle
@@ -32,7 +33,9 @@ def get_args():
     parser.add_argument("--retain-mmseqs-hits", type=str, required=False, help="mmseqs output in '.m8' format. Complete ORFs with a MMseqs2 match will be retained in the final output.")
     parser.add_argument("--retain-blastp_hits", type=str, required=False, help="blastp output in '-outfmt 6' format. Complete ORFs with a blastp match will be retained in the final output.")
     parser.add_argument("--retain-hmmer_hits", type=str, required=False, help="domain table output file from running hmmer to search Pfam. Complete ORFs with a Pfam domain hit will be retained in the final output.")
-    parser.add_argument("--retain-long-orfs-length", type=int, required=False, help="retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding (default: 1000000, so essentially turned off by default.)", default=1000000)
+    parser.add_argument("--retain-long-orfs-mode", type=str, required=False, help="dynamic: retain ORFs longer than a threshold length determined by calculating the FDR for each transcript's GC percent; strict: retain ORFs with length above constant length", default="dynamic")
+    parser.add_argument("--retain-long-orfs-fdr", type=float, required=False, help="in \"--retain-long-orfs-mode dynamic\" mode, set the False Discovery Rate used to calculate dynamic threshold", default=0.01)
+    parser.add_argument("--retain-long-orfs-length", type=int, required=False, help="in \"--retain-long-orfs-mode strict\" mode, retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding (default: 1000)", default=1000)
     parser.add_argument("--retain-encapsulated", action='store_true', help="retain ORFs that are fully contained within larger ORFs, default=False")
     parser.add_argument("--retain-partial", action='store_true', help="retain 5' and 3' partial ORFs (may cause correct complete ORFs to be missed), default=False")
     parser.add_argument("--psauron-all-frame", action='store_true', help="require ORF to have highest PSAURON score compared to all other reading frames, set this argument for less sensitive and more precise ORFs, default=False")
@@ -70,7 +73,83 @@ def find_encapsulated_intervals(intervals):
             bigboi_high = smolboi_high
             
     return encapsulated_intervals
+
+def length_at_fdr(gc, fdr):
+    # Calculate the minimum ORF length (in codons) such that the probability
+    #     of an ORF of that length or longer occurring by chance is equal to the
+    #     specified false discovery rate (FDR).
+    # Stop codons: TAA, TAG, TGA # TODO this is different for non-standard translation table
+    # P(TAA) = ((1-gc)/2)^3
+    # P(TAG) = P(TGA) = ((1-gc)/2)^2 * (gc/2)
+    p_stop = ((1 - gc)**2 * (1 + gc)) / 8.0
     
+    # Probability that a codon is not a stop codon.
+    p_nostop = 1 - p_stop
+
+    # We need the probability of L consecutive non-stop codons to be fdr:
+    # (p_nostop)^L = fdr
+    # Solve for L:
+    epsilon = 1e-200
+    L = math.log(fdr+epsilon) / math.log(p_nostop+epsilon)
+    
+    # Round up to ensure the FDR threshold is met.
+    return math.ceil(L)
+
+def gc_content(seq):
+    seq = seq.upper()
+    gc_count = seq.count("G") + seq.count("C")
+    return gc_count / len(seq)
+
+def load_fasta(filepath):
+    '''Loads a FASTA file and returns a list of descriptions and sequences'''
+    print("Loading transcripts at", filepath)
+    if filepath[-3:].lower() == ".gz":
+        f = gzip.open(filepath, "rt")
+    else:
+        f = open(filepath, "rt")
+
+    description_list = []
+    seq_list = []
+    for name, seq, qual in readfq(f):
+        description_list.append(name)
+        seq_list.append(seq)
+
+    f.close()
+    print(f"Loaded {len(seq_list)} sequences.")
+    return description_list, seq_list
+
+def readfq(fp):
+    """Generator function for reading FASTA/FASTQ files. From Heng Li."""
+    last = None
+    while True:
+        if not last:
+            for l in fp:
+                if l[0] in '>@':
+                    last = l[:-1]
+                    break
+        if not last: break
+        name, seqs, last = last[1:].partition(" ")[0], [], None
+        for l in fp:
+            if l[0] in '@+>':
+                last = l[:-1]
+                break
+            seqs.append(l[:-1])
+        if not last or last[0] != '+':
+            yield name, ''.join(seqs), None
+            if not last: break
+        else:
+            seq, leng, seqs = ''.join(seqs), 0, []
+            for l in fp:
+                seqs.append(l[:-1])
+                leng += len(l) - 1
+                if leng >= len(seq):
+                    last = None
+                    yield name, seq, ''.join(seqs)
+                    break
+            if last:
+                yield name, seq, None
+                break
+
 def main():
     # supress annoying warnings
     warnings.filterwarnings('ignore')
@@ -78,6 +157,9 @@ def main():
     # parse command line arguments
     args = get_args()
     psauron_cutoff = args.psauron_cutoff
+    if args.retain_long_orfs_mode != "dynamic" and args.retain_long_orfs_mode != "strict":
+        print(f"--retain-long-orfs-mode must be either dynamic or strict")
+        sys.exit()
     
     # use absolute path of output
     if args.output_dir == "./transcripts.TD2_dir":
@@ -115,12 +197,35 @@ def main():
     else:
         df_psauron = pandas.read_csv(p_score, skiprows=2)
         ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
-                                df_psauron["in-frame_score"])) # this "-" is a bug in the -s mode for psauron, TODO fix this in psauron
+                                df_psauron["in-frame_score"])) # this "-" is a bug in the -s mode for psauron, TODO fix this in psauron, then fix it here
         df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in-frame_score'] > psauron_cutoff, axis=1)]
     
     ID_psauron_selected = set([str(x.split(" ")[0]) for x in df_psauron_selected["description"]])
+   
+    # retain long ORFs
+    ID_length_selected = set()
+    transcript_to_keeplength = dict()
+    if args.retain_long_orfs_mode == "dynamic":
+        print(f"Retaining long ORFs using dynamic length threshold with FDR={args.retain_long_orfs_fdr}")
+        desc, seq = load_fasta(p_transcripts)
+        for i, s in enumerate(seq):
+            GC = gc_content(s)
+            keeplength = length_at_fdr(GC, args.retain_long_orfs_fdr) 
+            transcript_to_keeplength[desc[i]] = keeplength
+        desc, seq = load_fasta(p_cds)
+        for i, s in enumerate(seq):
+            ID = desc[i]
+            transcript = ".".join(ID.split(".")[:-1])
+            if len(s)/3 >= transcript_to_keeplength[transcript]:
+                ID_length_selected.add(ID)
+    else:
+       print(f"Retaining long ORFs using strict length threshold, retaining if >= {args.retain_long_orfs_length} nucleotides")
+       desc, seq = load_fasta(p_cds)
+       for i, s in enumerate(seq):
+            ID = desc[i]
+            if len(s) >= args.retain_long_orfs_length:
+                ID_length_selected.add(ID) 
     print(f"Done.")
-    
     
     # integrate homology search results
     if any([args.retain_mmseqs_hits, args.retain_blastp_hits, args.retain_hmmer_hits]):
@@ -214,7 +319,7 @@ def main():
     p_pep_final = basename + ".TD2.pep"
     p_gff3_final = basename + ".TD2.gff3"
     p_cds_final = basename + ".TD2.cds"
-    p_bed_final = basename + ".TD2.bed" # TODO bed file, probably better just to write gff then convert
+    p_bed_final = basename + ".TD2.bed"
     
     # ORF selection
     ID_selected = set() # IDs of all transcripts that pass filters
