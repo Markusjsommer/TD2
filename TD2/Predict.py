@@ -15,6 +15,7 @@ from tqdm.auto import tqdm
 from io import StringIO
 from collections import defaultdict
 from collections import OrderedDict
+from scipy import stats
 
 from TD2.translator import Translator
 from TD2.LongOrfs import load_fasta
@@ -34,8 +35,8 @@ def get_args():
     parser.add_argument("--retain-blastp_hits", type=str, required=False, help="blastp output in '-outfmt 6' format. Complete ORFs with a blastp match will be retained in the final output.")
     parser.add_argument("--retain-hmmer_hits", type=str, required=False, help="domain table output file from running hmmer to search Pfam. Complete ORFs with a Pfam domain hit will be retained in the final output.")
     parser.add_argument("--retain-long-orfs-mode", type=str, required=False, help="dynamic: retain ORFs longer than a threshold length determined by calculating the FDR for each transcript's GC percent; strict: retain ORFs with length above constant length", default="dynamic")
-    parser.add_argument("--retain-long-orfs-fdr", type=float, required=False, help="in \"--retain-long-orfs-mode dynamic\" mode, set the False Discovery Rate used to calculate dynamic threshold", default=0.01)
-    parser.add_argument("--retain-long-orfs-length", type=int, required=False, help="in \"--retain-long-orfs-mode strict\" mode, retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding (default: 1000)", default=1000)
+    parser.add_argument("--retain-long-orfs-fdr", type=float, required=False, help="in \"--retain-long-orfs-mode dynamic\" mode, set the False Discovery Rate used to calculate dynamic threshold, default=0.01", default=0.01)
+    parser.add_argument("--retain-long-orfs-length", type=int, required=False, help="in \"--retain-long-orfs-mode strict\" mode, retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding, default=1000", default=1000)
     parser.add_argument("--retain-encapsulated", action='store_true', help="retain ORFs that are fully contained within larger ORFs, default=False")
     parser.add_argument("--retain-partial", action='store_true', help="retain 5' and 3' partial ORFs (may cause correct complete ORFs to be missed), default=False")
     parser.add_argument("--psauron-all-frame", action='store_true', help="require ORF to have highest PSAURON score compared to all other reading frames, set this argument for less sensitive and more precise ORFs, default=False")
@@ -74,26 +75,38 @@ def find_encapsulated_intervals(intervals):
             
     return encapsulated_intervals
 
-def length_at_fdr(gc, fdr):
-    # Calculate the minimum ORF length (in codons) such that the probability
-    #     of an ORF of that length or longer occurring by chance is equal to the
-    #     specified false discovery rate (FDR).
-    # Stop codons: TAA, TAG, TGA # TODO this is different for non-standard translation table
-    # P(TAA) = ((1-gc)/2)^3
-    # P(TAG) = P(TGA) = ((1-gc)/2)^2 * (gc/2)
-    p_stop = ((1 - gc)**2 * (1 + gc)) / 8.0
-    
-    # Probability that a codon is not a stop codon.
-    p_nostop = 1 - p_stop
+#Schilling 1990 expected value
+def ER(n, p):
+    if n ==0:
+        return 0
+    q = 1 - p
+    # approximating r1 = e1 = 0
+    return math.log(n*q, 1/p) + np.euler_gamma/math.log(1/p) - 1/2
 
-    # We need the probability of L consecutive non-stop codons to be fdr:
-    # (p_nostop)^L = fdr
-    # Solve for L:
-    epsilon = 1e-200
-    L = math.log(fdr+epsilon) / math.log(p_nostop+epsilon)
-    
-    # Round up to ensure the FDR threshold is met.
-    return math.ceil(L)
+# Schilling 1990 variance
+def VR(n, p):
+    if n == 0:
+        return 0
+    # approximating r2 = e2 = 0
+    return np.pi**2 / (6 * math.log(1/p)**2) + 1/12
+
+def length_at_fdr(transcript_length, GC, fdr):
+    p_TAA = (0.5 * (1-GC))**3
+    p_TAG = (0.5 * (1-GC))**2 * (0.5 * GC)
+    p_TGA = (0.5 * (1-GC))**2 * (0.5 * GC)
+    p_stop = p_TAA + p_TAG + p_TGA
+    # TODO alternate translation tables
+   
+    # TODO account for alternate reading frames
+    # just multiply length by 6 for now, this is a conservative method, so actually pretty good
+    coin_flips = transcript_length * 6 / 3 # transcript is nucleotides, coin flip is each codon
+    # using generalized extreme value distribution, type I
+    mean = ER(transcript_length, 1 - p_stop)
+    var = VR(transcript_length, 1 - p_stop)
+    std = math.sqrt(var)
+    beta = std * math.sqrt(6) / math.pi
+    mu = mean - np.euler_gamma * beta
+    return stats.gumbel_r.ppf(1 - fdr, loc=mu, scale=beta) * 3 # convert back to nucleotide length
 
 def gc_content(seq):
     seq = seq.upper()
@@ -210,13 +223,13 @@ def main():
         desc, seq = load_fasta(p_transcripts)
         for i, s in enumerate(seq):
             GC = gc_content(s)
-            keeplength = length_at_fdr(GC, args.retain_long_orfs_fdr) 
+            keeplength = length_at_fdr(len(s), GC, args.retain_long_orfs_fdr) 
             transcript_to_keeplength[desc[i]] = keeplength
         desc, seq = load_fasta(p_cds)
         for i, s in enumerate(seq):
             ID = desc[i]
             transcript = ".".join(ID.split(".")[:-1])
-            if len(s)/3 >= transcript_to_keeplength[transcript]:
+            if len(s) >= transcript_to_keeplength[transcript]:
                 ID_length_selected.add(ID)
     else:
        print(f"Retaining long ORFs using strict length threshold, retaining if >= {args.retain_long_orfs_length} nucleotides")
@@ -340,7 +353,7 @@ def main():
             ID = str(s[0])
             ID_to_description[ID] = ORF
             # filter with psauron and homology
-            if not ((ID in ID_psauron_selected) or (ID in hits_mmeseqs) or (ID in hits_blastp) or (ID in hits_hmmer)):
+            if not ((ID in ID_psauron_selected) or (ID in ID_length_selected) or (ID in hits_mmeseqs) or (ID in hits_blastp) or (ID in hits_hmmer)):
                 continue
                 
             # remove partial ORFs by default
