@@ -278,7 +278,7 @@ def main():
     
     args = get_args()
     min_len_aa = args.minimum_length
-    abs_min_len_aa = args.absolute_min
+    abs_min_len_aa = min(args.absolute_min, min_len_aa)
     len_scale = args.len_scale
     strand_specific = args.strand_specific
     complete_orfs_only = not args.incomplete_orfs
