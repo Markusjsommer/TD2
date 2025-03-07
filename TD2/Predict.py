@@ -96,17 +96,20 @@ def length_at_fdr(transcript_length, GC, fdr):
     p_TGA = (0.5 * (1-GC))**2 * (0.5 * GC)
     p_stop = p_TAA + p_TAG + p_TGA
     # TODO alternate translation tables
-   
-    # TODO account for alternate reading frames
-    # just multiply length by 6 for now, this is a conservative method, so actually pretty good
-    coin_flips = transcript_length * 6 / 3 # transcript is nucleotides, coin flip is each codon
-    # using generalized extreme value distribution, type I
-    mean = ER(transcript_length, 1 - p_stop)
-    var = VR(transcript_length, 1 - p_stop)
+    
+    # use Schilling 1990 expected value and variance
+    coin_flips = transcript_length / 3 # transcript is nucleotides, coin flip is each codon
+    mean = ER(coin_flips, 1 - p_stop)
+    var = VR(coin_flips, 1 - p_stop)
     std = math.sqrt(var)
+
+    # correct FDR for 6 independent trials (alternate reading frames)
+    fdr_multiframe = 1 - (1 - fdr)**(1/6)
+
+    # use generalized extreme value distribution to get FDR
     beta = std * math.sqrt(6) / math.pi
     mu = mean - np.euler_gamma * beta
-    return stats.gumbel_r.ppf(1 - fdr, loc=mu, scale=beta) * 3 # convert back to nucleotide length
+    return stats.gumbel_r.ppf(1 - fdr_multiframe, loc=mu, scale=beta) * 3 # convert back to nucleotide length
 
 def gc_content(seq):
     seq = seq.upper()
@@ -229,6 +232,7 @@ def main():
         for i, s in enumerate(seq):
             ID = desc[i]
             transcript = ".".join(ID.split(".")[:-1])
+            #print(len(s), transcript_to_keeplength[transcript])
             if len(s) >= transcript_to_keeplength[transcript]:
                 ID_length_selected.add(ID)
     else:
@@ -388,29 +392,10 @@ def main():
                 seq_cds = line.rstrip()
                 ID_to_cds[ID] = seq_cds
     
-    # remove encapsulated ORFs
-    if not args.retain_encapsulated:
-        # group intervals by transcript
-        transcript_intervals = defaultdict(list)
-        for ID in ID_selected:
-            transcript, lowcoord, highcoord = pep_ID_to_info[ID]
-            transcript_intervals[transcript].append((ID, (lowcoord, highcoord)))            
-        
-        # find fully encapsulated ORFs
-        ID_encapsulated = set()
-        for transcript, intervals in transcript_intervals.items():
-            encapsulated = find_encapsulated_intervals(intervals)
-            ID_encapsulated.update(encapsulated)
-        if len(ID_encapsulated) == 1:
-            print(f"Removing {len(ID_encapsulated):d} encapsulated ORF", flush=True)
-        else:
-            print(f"Removing {len(ID_encapsulated):d} encapsulated ORFs", flush=True)
-        
-        # remove from final set
-        ID_selected -= ID_encapsulated    
-    
     # keep only one ORF per transcript
-    # prioritizes homology, then ORF length
+    # prioritizes homology, then for L>m requires PSAURON score, then ORF length
+    # TODO use psauron score to decide between two ORFs with homology? currently just length.
+    # TODO use PSAURON to decide in general? currently uses a binary yes/no, could prefer very high scores e.g. >0.99 regardless of length
     if args.single_best_only:
         transcript_to_ID_info = dict()
         ID_not_single_best = set()
@@ -420,7 +405,8 @@ def main():
             homology = any([ID in hits_blastp,
                             ID in hits_hmmer,
                             ID in hits_mmeseqs])
-            info = (ID, homology, length)
+            psauron = ID in ID_psauron_selected
+            info = (ID, homology, length, psauron)
             # will keep longest ORF with any homology hit
             if transcript in transcript_to_ID_info:
                 info_stored = transcript_to_ID_info[transcript]
@@ -432,20 +418,47 @@ def main():
                         ID_not_single_best.add(info[0]) # remove shorter ORF
                 elif info[1] and not info_stored[1]: 
                     transcript_to_ID_info[transcript] = info # keep ORF with homology
-                    ID_not_single_best.add(info_stored[0])# remove ORF with no homology
+                    ID_not_single_best.add(info_stored[0]) # remove ORF with no homology
                 elif not info[1] and  info_stored[1]:
-                    ID_not_single_best.add(info[0])# remove ORF with no homology
-                elif not info[1] and not info_stored[1]:
-                    if info[2] > info_stored[2]: # keep longer ORF
-                        transcript_to_ID_info[transcript] = info
-                        ID_not_single_best.add(info_stored[0]) # remove shorter ORF
-                    else:
-                        ID_not_single_best.add(info[0]) # remove shorter ORF
+                    ID_not_single_best.add(info[0]) # remove ORF with no homology
+                elif not info[1] and not info_stored[1]: # neither has homology
+                    if info[3] and not info_stored[3]:
+                        transcript_to_ID_info[transcript] = info # keep ORF that passes PSAURON threshold
+                        ID_not_single_best.add(info_stored[0]) # remove ORF that does not pass PSAURON threshold
+                    elif not info[3] and info_stored[3]:
+                        ID_not_single_best.add(info[0]) # remove ORF that does not pass PSAURON threshold
+                    else: # both pass PSAURON threshold or neither pass PSAURON threshold
+                        if info[2] > info_stored[2]: # keep longer ORF
+                            transcript_to_ID_info[transcript] = info
+                            ID_not_single_best.add(info_stored[0]) # remove shorter ORF
+                        else:
+                            ID_not_single_best.add(info[0]) # remove shorter ORF
             else:
                 transcript_to_ID_info[transcript] = info
                 
         # remove from final set
-        ID_selected -= ID_not_single_best   
+        ID_selected -= ID_not_single_best
+
+    # remove encapsulated ORFs
+    if not args.retain_encapsulated:
+        # group intervals by transcript
+        transcript_intervals = defaultdict(list)
+        for ID in ID_selected:
+            transcript, lowcoord, highcoord = pep_ID_to_info[ID]
+            transcript_intervals[transcript].append((ID, (lowcoord, highcoord)))
+
+        # find fully encapsulated ORFs
+        ID_encapsulated = set()
+        for transcript, intervals in transcript_intervals.items():
+            encapsulated = find_encapsulated_intervals(intervals)
+            ID_encapsulated.update(encapsulated)
+        if len(ID_encapsulated) == 1:
+            print(f"Removing {len(ID_encapsulated):d} encapsulated ORF", flush=True)
+        else:
+            print(f"Removing {len(ID_encapsulated):d} encapsulated ORFs", flush=True)
+
+        # remove from final set
+        ID_selected -= ID_encapsulated 
     
     print(f"Writing final output to current working directory", flush=True)           
     # pep and cds fasta

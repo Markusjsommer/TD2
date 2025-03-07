@@ -61,12 +61,12 @@ def get_args():
                         help="path to output results, default=./{transcripts}.TD2_dir",
                         default="./transcripts.TD2_dir")
     parser.add_argument("-m", "--min-length", dest="minimum_length", type=int, required=False,
-                        help="minimum protein length, default=100", default=100)
-    parser.add_argument("-M", "--absolute-min-length", dest="absolute_min", type=float, required=False,
-                        help="minimum protein length for proteins in small transcripts, default=25",
-                        default=25)
+                        help="minimum protein length for proteins in long transcripts, default=100", default=100)
+    parser.add_argument("-M", "--absolute-min-length", dest="absolute_min", type=int, required=False,
+                        help="minimum protein length for proteins in short transcripts, default=50",
+                        default=50)
     parser.add_argument("-L", "--length-scale", dest="len_scale", type=float, required=False,
-                        help="allow short ORFs if they are at least a fraction of the total transcript length, default=0.8",
+                        help="allow short ORFs in short transcripts if the ORF is at least a fraction of the total transcript length, default=0.8",
                         default=0.8)
     parser.add_argument("-S", "--strand-specific", dest="strand_specific", action='store_true', required=False,
                         help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
