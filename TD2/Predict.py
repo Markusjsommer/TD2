@@ -323,12 +323,16 @@ def main():
             partial = True
         else:
             partial = False
-        
+        strand = str(l[-1].rstrip()[-2])
+        if strand == "+":
+            threeprimecoord = highcoord
+        else:
+            threeprimecoord = lowcoord 
         pep_ID_list.append(ID)
         pep_transcript_list.append(transcript)
         pep_lowcoord_list.append(lowcoord)
         pep_highcoord_list.append(highcoord)
-        pep_ID_to_info[ID] = (transcript, lowcoord, highcoord)
+        pep_ID_to_info[ID] = (transcript, lowcoord, highcoord, strand, threeprimecoord)
         ID_to_partial[ID] = partial
     
     # write final outputs to current working directory
@@ -396,17 +400,20 @@ def main():
     # prioritizes homology, then for L>m requires PSAURON score, then ORF length
     # TODO use psauron score to decide between two ORFs with homology? currently just length.
     # TODO use PSAURON to decide in general? currently uses a binary yes/no, could prefer very high scores e.g. >0.99 regardless of length
+    print(f"Selecting single best ORF per transcript", flush=True)
     if args.single_best_only:
         transcript_to_ID_info = dict()
         ID_not_single_best = set()
+        ID_to_filters = dict()
         for ID in ID_selected:
-            transcript, lowcoord, highcoord = pep_ID_to_info[ID]
+            transcript, lowcoord, highcoord, strand, threeprimecoord = pep_ID_to_info[ID]
             length = highcoord - lowcoord + 1
             homology = any([ID in hits_blastp,
                             ID in hits_hmmer,
                             ID in hits_mmeseqs])
             psauron = ID in ID_psauron_selected
             info = (ID, homology, length, psauron)
+            ID_to_filters[ID] = info
             # will keep longest ORF with any homology hit
             if transcript in transcript_to_ID_info:
                 info_stored = transcript_to_ID_info[transcript]
@@ -435,16 +442,50 @@ def main():
                             ID_not_single_best.add(info[0]) # remove shorter ORF
             else:
                 transcript_to_ID_info[transcript] = info
-                
+
+        # find all ORFs that share stop codon and strand in each transcript        
+        transcript_shared_stops = defaultdict(set)
+        for ID in ID_selected:
+            transcript, lowcoord, highcoord, strand, threeprimecoord = pep_ID_to_info[ID] 
+            key = "".join([str(transcript), str(strand), str(threeprimecoord)])
+            transcript_shared_stops[key].add(ID)
+
         # remove from final set
         ID_selected -= ID_not_single_best
+
+        # special case: if 5' partial is selected as best, check if there is a complete ORF sharing stop codon
+        # prefer complete ORF if it passes the same criteria as the selected 5' partial ORF
+        for ID in ID_selected:
+            info_partial = ID_to_filters[ID]
+            if not ID_to_partial[ID]: # only replace partial ORFs
+                continue
+            info_partial = ID_to_filters[ID]
+            transcript, lowcoord, highcoord, strand, threeprimecoord = pep_ID_to_info[ID]
+            key = "".join([str(transcript), str(strand), str(threeprimecoord)])
+            ID_alts = transcript_shared_stops[key]
+            replacement = ("_", 0) # ID and length of best replacement ORF
+            for ID_replacement in ID_alts:
+                if ID_to_partial[ID_replacement]: # don't replace partials with partials
+                    continue
+                # only replace if complete ORF passes all the same filters
+                info_complete = ID_to_filters[ID_replacement]
+                if info_partial[1] and not info_complete[1]: # homology
+                    continue
+                if info_partial[3] and not info_complete[3]: # PSAURON threshold
+                    continue
+                # replacement found!
+                if info_complete[2] > replacement[1]: # keep longest complete replacement ORF
+                    replacement = (ID_replacement, info_complete[2])
+            if replacement[1] > 0: # replace in selected ORFs
+                ID_selected.remove(ID)
+                ID_selected.add(replacement[0])
 
     # remove encapsulated ORFs
     if not args.retain_encapsulated:
         # group intervals by transcript
         transcript_intervals = defaultdict(list)
         for ID in ID_selected:
-            transcript, lowcoord, highcoord = pep_ID_to_info[ID]
+            transcript, lowcoord, highcoord, strand, threeprimecoord = pep_ID_to_info[ID]
             transcript_intervals[transcript].append((ID, (lowcoord, highcoord)))
 
         # find fully encapsulated ORFs
