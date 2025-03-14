@@ -28,15 +28,16 @@ def get_args():
     required = parser.add_argument_group('required arguments')
     required.add_argument("-t", dest="transcripts",  type=str, required=True, help="REQUIRED path to transcripts.fasta")
     
-    # optional
-    parser.add_argument("-P", dest="psauron_cutoff", type=float, required=False, help="minimum in-frame PSAURON score required to report ORF assuming no homology hits, higher is less sensitive and more precise (range: [0,1]; default: 0.25)", default=0.25)
+    # optional 
+    parser.add_argument("--precise", dest="precise", action='store_true', required=False, help="set --precise to enable precise mode. Equivalent to -P 0.9 and --retain-long-orfs-fdr 0.005 for TD2.Predict, default=False", default=False)
+    parser.add_argument("-P", dest="psauron_cutoff", type=float, required=False, help="minimum in-frame PSAURON score required to report ORF assuming no homology hits, higher is less sensitive and more precise (range: [0,1]; default: 0.50)", default=0.50)
     parser.add_argument("--all-good", action='store_true', help="report all ORFs that pass PSAURON and/or length-based false discovery filters, default=False")
     parser.add_argument("--retain-mmseqs-hits", type=str, required=False, help="mmseqs output in '.m8' format. Complete ORFs with a MMseqs2 match will be retained in the final output.")
     parser.add_argument("--retain-blastp_hits", type=str, required=False, help="blastp output in '-outfmt 6' format. Complete ORFs with a blastp match will be retained in the final output.")
     parser.add_argument("--retain-hmmer_hits", type=str, required=False, help="domain table output file from running hmmer to search Pfam. Complete ORFs with a Pfam domain hit will be retained in the final output.")
     parser.add_argument("--retain-long-orfs-mode", type=str, required=False, help="dynamic: retain ORFs longer than a threshold length determined by calculating the FDR for each transcript's GC percent; strict: retain ORFs with length above constant length", default="dynamic")
     parser.add_argument("--retain-long-orfs-fdr", type=float, required=False, help="in \"--retain-long-orfs-mode dynamic\" mode, set the False Discovery Rate used to calculate dynamic threshold, default=0.10", default=0.10)
-    parser.add_argument("--retain-long-orfs-length", type=int, required=False, help="in \"--retain-long-orfs-mode strict\" mode, retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding, default=1000", default=1000)
+    parser.add_argument("--retain-long-orfs-length", type=int, required=False, help="in \"--retain-long-orfs-mode strict\" mode, retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding, default=100000", default=100000)
     parser.add_argument("--discard-encapsulated", action='store_true', help="retain ORFs that are fully contained within larger ORFs, default=False")
     parser.add_argument("--complete-orfs-only", action='store_true', help="discard all ORFs without both a stop and start codon, default=False")
     parser.add_argument("--psauron-all-frame", action='store_true', help="require ORF to have highest PSAURON score compared to all other reading frames, set this argument for less sensitive and more precise ORFs, can dramatically increase compute time requirements, default=False")
@@ -169,12 +170,17 @@ def readfq(fp):
 def main():
     # supress annoying warnings
     warnings.filterwarnings('ignore')
+
     
     # parse command line arguments
     args = get_args()
+    if args.precise:
+        print(f"Running in precise mode. P=0.9 retain-long-orfs-fdr=0.005")
+        args.psauron_cutoff = 0.9
+        args.retain_long_orfs_fdr = 0.005
     psauron_cutoff = args.psauron_cutoff
     if args.retain_long_orfs_mode != "dynamic" and args.retain_long_orfs_mode != "strict":
-        print(f"--retain-long-orfs-mode must be either dynamic or strict")
+        print(f"--retain-long-orfs-mode must be either dynamic or strict", flush=True)
         sys.exit()
     
     # use absolute path of output

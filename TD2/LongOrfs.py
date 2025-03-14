@@ -60,6 +60,8 @@ def get_args():
     parser.add_argument("-O", "--output-dir", dest="output_dir", type=str, required=False,
                         help="path to output results, default=./{transcripts}.TD2_dir",
                         default="./transcripts.TD2_dir")
+    parser.add_argument("--precise", dest="precise", action='store_true', required=False,
+                        help="set --precise to enable precise mode. Equivalent to -m 98 -M 98 for TD2.LongOrfs, default=False", default=False)
     parser.add_argument("-m", "--min-length", dest="minimum_length", type=int, required=False,
                         help="minimum protein length for proteins in long transcripts, default=90", default=90)
     parser.add_argument("-M", "--absolute-min-length", dest="absolute_min", type=int, required=False,
@@ -289,7 +291,12 @@ def main():
     threads = args.threads
     memory_threshold = args.memory_threshold
     top = args.top
-    
+
+    if args.precise:
+        print("Running in precise mode, m=98 and M=98", flush=True)
+        min_len_aa = 98
+        abs_min_len_aa = 98    
+
     if args.output_dir == "./transcripts.TD2_dir":
         p_transcripts = os.path.abspath(args.transcripts)
         output_dir = os.path.splitext(os.path.basename(p_transcripts))[0]
