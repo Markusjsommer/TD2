@@ -61,19 +61,19 @@ def get_args():
                         help="path to output results, default=./{transcripts}.TD2_dir",
                         default="./transcripts.TD2_dir")
     parser.add_argument("-m", "--min-length", dest="minimum_length", type=int, required=False,
-                        help="minimum protein length for proteins in long transcripts, default=100", default=100)
+                        help="minimum protein length for proteins in long transcripts, default=90", default=90)
     parser.add_argument("-M", "--absolute-min-length", dest="absolute_min", type=int, required=False,
-                        help="minimum protein length for proteins in short transcripts, default=50",
-                        default=50)
+                        help="minimum protein length for proteins in short transcripts, default=90",
+                        default=90)
     parser.add_argument("-L", "--length-scale", dest="len_scale", type=float, required=False,
-                        help="allow short ORFs in short transcripts if the ORF is at least a fraction of the total transcript length, default=0.8",
-                        default=0.8)
+                        help="allow short ORFs in short transcripts if the ORF is at least a fraction of the total transcript length, default=1.1 (essentially off by default). You must also specify -M to a lower minimum ORF length to work with -L",
+                        default=1.1)
     parser.add_argument("-S", "--strand-specific", dest="strand_specific", action='store_true', required=False,
                         help="set -S for strand-specific ORFs (only analyzes top strand), default=False", default=False)
     parser.add_argument("-G", "--genetic-code", dest="genetic_code", type=int, required=False,
                         help="genetic code (NCBI integer code), default=1 (universal)", default=1)
-    parser.add_argument("-i", "--incomplete-orfs", dest="incomplete_orfs", action='store_true', required=False,
-                        help="set -i to consider incomplete ORFs, default=False", default=False)
+    parser.add_argument("--complete-orfs-only", dest="complete_orfs_only", action='store_true', required=False,
+                        help="ignore all ORFs without both a stop and start codon, default=False", default=False)
     parser.add_argument("--alt-start", dest="alt_start", action='store_true', required=False,
                         help="include alternative initiator codons, default=False", default=False)
     parser.add_argument("--top", dest='top', type=int, required=False,
@@ -281,7 +281,7 @@ def main():
     abs_min_len_aa = min(args.absolute_min, min_len_aa)
     len_scale = args.len_scale
     strand_specific = args.strand_specific
-    complete_orfs_only = not args.incomplete_orfs
+    complete_orfs_only = args.complete_orfs_only
     genetic_code = args.genetic_code
     alt_start = args.alt_start
     gene_trans_map = args.gene_trans_map

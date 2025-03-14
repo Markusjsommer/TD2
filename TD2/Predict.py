@@ -30,16 +30,16 @@ def get_args():
     
     # optional
     parser.add_argument("-P", dest="psauron_cutoff", type=float, required=False, help="minimum in-frame PSAURON score required to report ORF assuming no homology hits, higher is less sensitive and more precise (range: [0,1]; default: 0.25)", default=0.25)
-    parser.add_argument("--single-best-only", action='store_true', help="retain only the single best ORF per transcript (prioritized by homology then ORF length), default=False")
+    parser.add_argument("--all-good", action='store_true', help="report all ORFs that pass PSAURON and/or length-based false discovery filters, default=False")
     parser.add_argument("--retain-mmseqs-hits", type=str, required=False, help="mmseqs output in '.m8' format. Complete ORFs with a MMseqs2 match will be retained in the final output.")
     parser.add_argument("--retain-blastp_hits", type=str, required=False, help="blastp output in '-outfmt 6' format. Complete ORFs with a blastp match will be retained in the final output.")
     parser.add_argument("--retain-hmmer_hits", type=str, required=False, help="domain table output file from running hmmer to search Pfam. Complete ORFs with a Pfam domain hit will be retained in the final output.")
     parser.add_argument("--retain-long-orfs-mode", type=str, required=False, help="dynamic: retain ORFs longer than a threshold length determined by calculating the FDR for each transcript's GC percent; strict: retain ORFs with length above constant length", default="dynamic")
-    parser.add_argument("--retain-long-orfs-fdr", type=float, required=False, help="in \"--retain-long-orfs-mode dynamic\" mode, set the False Discovery Rate used to calculate dynamic threshold, default=0.01", default=0.01)
+    parser.add_argument("--retain-long-orfs-fdr", type=float, required=False, help="in \"--retain-long-orfs-mode dynamic\" mode, set the False Discovery Rate used to calculate dynamic threshold, default=0.10", default=0.10)
     parser.add_argument("--retain-long-orfs-length", type=int, required=False, help="in \"--retain-long-orfs-mode strict\" mode, retain all ORFs found that are equal or longer than these many nucleotides even if no other evidence marks it as coding, default=1000", default=1000)
-    parser.add_argument("--retain-encapsulated", action='store_true', help="retain ORFs that are fully contained within larger ORFs, default=False")
-    parser.add_argument("--retain-partial", action='store_true', help="retain 5' and 3' partial ORFs (may cause correct complete ORFs to be missed), default=False")
-    parser.add_argument("--psauron-all-frame", action='store_true', help="require ORF to have highest PSAURON score compared to all other reading frames, set this argument for less sensitive and more precise ORFs, default=False")
+    parser.add_argument("--discard-encapsulated", action='store_true', help="retain ORFs that are fully contained within larger ORFs, default=False")
+    parser.add_argument("--complete-orfs-only", action='store_true', help="discard all ORFs without both a stop and start codon, default=False")
+    parser.add_argument("--psauron-all-frame", action='store_true', help="require ORF to have highest PSAURON score compared to all other reading frames, set this argument for less sensitive and more precise ORFs, can dramatically increase compute time requirements, default=False")
 
     parser.add_argument("-G", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1", default=1)
     parser.add_argument("-O", dest="output_dir", type=str, required=False, help="same output directory from LongOrfs", default="./transcripts.TD2_dir")
@@ -365,7 +365,7 @@ def main():
                 continue
                 
             # remove partial ORFs by default
-            if ID_to_partial[ID] and not args.retain_partial:
+            if ID_to_partial[ID] and args.complete_orfs_only:
                 continue
             
             # get transcript info
@@ -400,8 +400,8 @@ def main():
     # prioritizes homology, then for L>m requires PSAURON score, then ORF length
     # TODO use psauron score to decide between two ORFs with homology? currently just length.
     # TODO use PSAURON to decide in general? currently uses a binary yes/no, could prefer very high scores e.g. >0.99 regardless of length
-    print(f"Selecting single best ORF per transcript", flush=True)
-    if args.single_best_only:
+    if not args.all_good:
+        print(f"Selecting single best ORF per transcript", flush=True)
         transcript_to_ID_info = dict()
         ID_not_single_best = set()
         ID_to_filters = dict()
@@ -481,7 +481,7 @@ def main():
                 ID_selected.add(replacement[0])
 
     # remove encapsulated ORFs
-    if not args.retain_encapsulated:
+    if args.discard_encapsulated:
         # group intervals by transcript
         transcript_intervals = defaultdict(list)
         for ID in ID_selected:
