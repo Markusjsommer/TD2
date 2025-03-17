@@ -170,7 +170,6 @@ def readfq(fp):
 def main():
     # supress annoying warnings
     warnings.filterwarnings('ignore')
-
     
     # parse command line arguments
     args = get_args()
@@ -191,7 +190,7 @@ def main():
         output_dir = os.path.abspath(args.output_dir) 
     
     # run psauron to score ORFs
-    print(f"Step 1: Running PSAURON", flush=True)
+    print(f"Step 1: Running PSAURON. This can take awhile, set -v to track progress.", flush=True)
     p_cds = os.path.join(output_dir, "longest_orfs.cds")
     p_score = os.path.join(output_dir, "psauron_score.csv")
     if args.verbose:
