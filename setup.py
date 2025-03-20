@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
     
 setup(
     name="TD2",
-    version="0.1.0",
+    version="1.0.0",
     description="A tool to find protein coding ORFs",
     packages=find_packages(),
     long_description=long_description,
@@ -21,7 +21,7 @@ setup(
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
     ],
-    install_requires=["psauron>=1.0.2",
+    install_requires=["psauron>=1.0.5",
                       "typing-extensions>=4.9.0",
                       "tqdm>=4.66.1",
                       "scipy>=1.10.1",
@@ -30,7 +30,7 @@ setup(
     extras_require={
         "dev": ["pytest>=7.0", "twine>=4.0.2", "pytest-cov>=4.0", "wheel"],
     },
-    python_requires=">=3.8",
+    python_requires=">=3.9, <3.13",
     entry_points={
         'console_scripts': [
             'TD2 = TD2.help:main', 
