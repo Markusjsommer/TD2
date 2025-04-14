@@ -78,6 +78,8 @@ def get_args():
                         help="ignore all ORFs without both a stop and start codon, default=False", default=False)
     parser.add_argument("--alt-start", dest="alt_start", action='store_true', required=False,
                         help="include alternative initiator codons, default=False", default=False)
+    parser.add_argument("--all-stopless", dest="all_stopless", action='store_true', required=False,
+                        help="report stopless sequences rather than ORFs, i.e. never require a start codon, default=False", default=False)
     parser.add_argument("--top", dest='top', type=int, required=False,
                         help="record the top N CDS transcripts by length, default=0", default=0)
     
@@ -167,7 +169,7 @@ def filter_len(seq_len, orf_len, high, low, scale):
     else:
         return orf_len >= scale * seq_len / 3
 
-def find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only):
+def find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only, all_stopless):
     '''Finds all ORFs above the minimum length threshold.'''
     all_orf_list = []
     
@@ -179,21 +181,21 @@ def find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_spe
         three_prime_partial = True
     
     for i in range(3):
-        sequence, orfs = translator.find_orfs(seq[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial)
+        sequence, orfs = translator.find_orfs(seq[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial, all_stopless=all_stopless)
         filtered_orfs = [orf for orf in orfs if filter_len(len(seq), orf[1] - orf[0], min_len_aa, abs_min_len_aa, len_scale)]
         all_orf_list.append((sequence, filtered_orfs, '+', i+1))
             
     if not strand_specific:
         for i in range(3):
-            sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial)
+            sequence, orfs = translator.find_orfs(reverse_complement(seq)[i:], five_prime_partial=five_prime_partial, three_prime_partial=three_prime_partial, all_stopless=all_stopless)
             filtered_orfs = [orf for orf in orfs if filter_len(len(seq), orf[1] - orf[0], min_len_aa, abs_min_len_aa, len_scale)]
             all_orf_list.append((sequence, filtered_orfs, '-', i+1))
     
     return all_orf_list
 
-def find_ORFs_with_index(index, seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only):
+def find_ORFs_with_index(index, seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only, all_stopless):
     '''Wrapper to allow multithreading with an index.'''
-    orfs = find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only)
+    orfs = find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only, all_stopless)
     return index, orfs
 
 def calculate_start_end(orf, length, strand, frame):
@@ -284,6 +286,7 @@ def main():
     len_scale = args.len_scale
     strand_specific = args.strand_specific
     complete_orfs_only = args.complete_orfs_only
+    all_stopless = args.all_stopless
     genetic_code = args.genetic_code
     alt_start = args.alt_start
     gene_trans_map = args.gene_trans_map
@@ -369,15 +372,15 @@ def main():
     
                 if threads == 1:
                     if verbose:
-                        batch_results = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only)
+                        batch_results = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only, all_stopless)
                                          for seq in tqdm(batch_seqs, desc="Finding ORFs", leave=False)]
                     else:
-                        batch_results = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only)
+                        batch_results = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only, all_stopless)
                                          for seq in batch_seqs]
                 else:
                     batch_results = [None] * len(batch_seqs)
                     with ProcessPoolExecutor(max_workers=threads) as executor:
-                        futures = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only): i
+                        futures = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only, all_stopless): i
                                    for i, seq in enumerate(batch_seqs)}
                         if verbose:
                             for future in tqdm(as_completed(futures), total=len(futures), desc="Finding ORFs", leave=False):
@@ -431,15 +434,15 @@ def main():
         start_time = time.time()
         if threads == 1:
             if verbose:
-                seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only)
+                seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only, all_stopless)
                                 for seq in tqdm(seq_list, desc="Finding ORFs", unit="transcript")]
             else:
-                seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only)
+                seq_ORF_list = [find_ORFs(seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only, all_stopless)
                                 for seq in seq_list]
         else:
             seq_ORF_list = [None] * len(seq_list)
             with ProcessPoolExecutor(max_workers=threads) as executor:
-                futures = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only): i 
+                futures = {executor.submit(find_ORFs_with_index, i, seq, translator, min_len_aa, abs_min_len_aa, len_scale, strand_specific, complete_orfs_only, all_stopless): i 
                            for i, seq in enumerate(seq_list)}
                 if verbose:
                     for future in tqdm(as_completed(futures), total=len(futures), desc="Finding ORFs", unit="transcript"):

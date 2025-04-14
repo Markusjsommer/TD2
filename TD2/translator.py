@@ -52,7 +52,7 @@ class Translator:
             translations.append((f'{strand}{frame+1}', translated_sequence, initiator_positions, end_positions))
         return translations
     
-    def find_orfs(self, sequence, five_prime_partial=False, three_prime_partial=False, complete_first=True):
+    def find_orfs(self, sequence, five_prime_partial=False, three_prime_partial=False, complete_first=True, all_stopless=False):
         '''
         Find complete open reading frames in the given sequence
         Parameters: 
@@ -63,6 +63,9 @@ class Translator:
         Returns: str, List[Tuple[int, int]]: Translated protein sequence and list of ORFs (start, end) [0-indexed, 1-indexed] positions
         '''
         protein_sequence, start_positions, end_positions = self.translate(sequence)
+        if all_stopless: 
+            start_positions = list(set(range(int(len(sequence)/3))) - set(end_positions))
+
         orfs = []
         cur_pos = -1
         start_index = 0
