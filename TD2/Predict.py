@@ -191,6 +191,7 @@ def main():
     
     # run psauron to score ORFs
     print(f"Step 1: Running PSAURON. This can take awhile, set -v to track progress.", flush=True)
+    print(f"Citation: M. J. Sommer, A. Zimin, S. L. Salzberg, PSAURON: a tool for assessing protein annotation across a broad range of species. NAR Genom. Bioinform. 7, lqae189 (2025).")
     p_cds = os.path.join(output_dir, "longest_orfs.cds")
     p_score = os.path.join(output_dir, "psauron_score.csv")
     if args.verbose:

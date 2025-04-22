@@ -506,6 +506,8 @@ def main():
                 f_cds_top.write(f'{cds_header}\n{orf_gene_seq}\n')
     
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
+    print(f"Citation: A. Mao, H. J. Ji, B. Haas, S. Salzberg, M. J. Sommer, TD2: finding protein coding regions in transcripts, bioRxiv (2025)p. 2025.04.13.648579.", flush=True)
+    print(f"Thank you for using TD2!", flush=True)
 
 if __name__ == "__main__":
     main()
