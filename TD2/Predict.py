@@ -183,8 +183,8 @@ def main():
         sys.exit()
     
     # use absolute path of output
+    p_transcripts = os.path.abspath(args.transcripts)
     if args.output_dir == "./transcripts.TD2_dir":
-        p_transcripts = os.path.abspath(args.transcripts)
         output_dir = os.path.splitext(os.path.basename(p_transcripts))[0]
     else:
         output_dir = os.path.abspath(args.output_dir) 

@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
     
 setup(
     name="TD2",
-    version="1.0.0",
+    version="1.0.1",
     description="A tool to find protein coding ORFs",
     packages=find_packages(),
     long_description=long_description,
