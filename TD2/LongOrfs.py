@@ -333,7 +333,8 @@ def main():
         with open(gene_trans_map, 'r') as f:
             transcript_gene_map = {}
             for line in f:
-                transcript_id, gene_id = line.strip().split('\t')
+                #transcript_id, gene_id = line.strip().split('\t')
+                gene_id, transcript_id = line.strip().split('\t')
                 transcript_gene_map[transcript_id] = gene_id
     else:
         transcript_gene_map = None
