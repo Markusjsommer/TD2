@@ -58,8 +58,8 @@ def get_args():
     
     # optional
     parser.add_argument("-O", "--output-dir", dest="output_dir", type=str, required=False,
-                        help="path to output results, default=./{transcripts}.TD2_dir",
-                        default="./transcripts.TD2_dir")
+                        help="path to output results, default=./{transcripts}",
+                        default="./{transcripts}")
     parser.add_argument("--precise", dest="precise", action='store_true', required=False,
                         help="set --precise to enable precise mode. Equivalent to -m 98 -M 98 for TD2.LongOrfs, default=False", default=False)
     parser.add_argument("-m", "--min-length", dest="minimum_length", type=int, required=False,
@@ -304,7 +304,7 @@ def main():
         min_len_aa = 98
         abs_min_len_aa = 98    
 
-    if args.output_dir == "./transcripts.TD2_dir":
+    if args.output_dir == "./{transcripts}":
         p_transcripts = os.path.abspath(args.transcripts)
         output_dir = os.path.splitext(os.path.basename(p_transcripts))[0]
     else:

@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
     
 setup(
     name="TD2",
-    version="1.0.4",
+    version="1.0.5",
     description="A tool to find protein coding ORFs",
     packages=find_packages(),
     long_description=long_description,
@@ -26,7 +26,9 @@ setup(
                       "tqdm>=4.66.1",
                       "scipy>=1.10.1",
                       "pandas>=2.0.3",
-                      "wheel"],
+                      "wheel",
+                      "setuptools<81",
+                      "psutil"],
     extras_require={
         "dev": ["pytest>=7.0", "twine>=4.0.2", "pytest-cov>=4.0", "wheel"],
     },

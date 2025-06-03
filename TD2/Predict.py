@@ -43,7 +43,7 @@ def get_args():
     parser.add_argument("--psauron-all-frame", action='store_true', help="require ORF to have highest PSAURON score compared to all other reading frames, set this argument for less sensitive and more precise ORFs, can dramatically increase compute time requirements, default=False")
 
     parser.add_argument("-G", dest="genetic_code", type=int, required=False, help="genetic code a.k.a. translation table, NCBI integer codes, default=1", default=1)
-    parser.add_argument("-O", dest="output_dir", type=str, required=False, help="same output directory from LongOrfs", default="./transcripts.TD2_dir")
+    parser.add_argument("-O", dest="output_dir", type=str, required=False, help="same output directory from LongOrfs", default="./{transcripts}")
     
     # TODO verbosity
     parser.add_argument("-v", "--verbose", action='store_true', help="verbose output with progress bars, default=False", default=False)
@@ -184,7 +184,7 @@ def main():
     
     # use absolute path of output
     p_transcripts = os.path.abspath(args.transcripts)
-    if args.output_dir == "./transcripts.TD2_dir":
+    if args.output_dir == "./{transcripts}":
         output_dir = os.path.splitext(os.path.basename(p_transcripts))[0]
     else:
         output_dir = os.path.abspath(args.output_dir) 
@@ -194,18 +194,22 @@ def main():
     print(f"Citation: M. J. Sommer, A. Zimin, S. L. Salzberg, PSAURON: a tool for assessing protein annotation across a broad range of species. NAR Genom. Bioinform. 7, lqae189 (2025).")
     p_cds = os.path.join(output_dir, "longest_orfs.cds")
     p_score = os.path.join(output_dir, "psauron_score.csv")
+    
+    env = os.environ.copy()
+    env["PYTHONWARNINGS"] = "ignore"
     if args.verbose:
         if args.psauron_all_frame:
             command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-v"]
         else:
             command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-v", "-s"]
-        result_psauron = subprocess.run(command_psauron, capture_output=False, text=True)
+        #result_psauron = subprocess.run(command_psauron, capture_output=False, text=True, stderr=subprocess.DEVNULL)
+        result_psauron = subprocess.run(command_psauron, capture_output=False, text=True, env=env)
     else:
         if args.psauron_all_frame:
             command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff)]
         else:
             command_psauron = ["psauron", "-i", str(p_cds), "-o", str(p_score), "-m", "0", "--inframe", str(psauron_cutoff), "-s"]
-        result_psauron = subprocess.run(command_psauron, capture_output=True, text=True)
+        result_psauron = subprocess.run(command_psauron, capture_output=True, text=True, env=env)
     
     # load psauron results
     if args.psauron_all_frame:
