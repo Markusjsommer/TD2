@@ -1,4 +1,4 @@
-from transmark.LongOrfs import find_ORFs, Translator, calculate_start_end
+from TD2.LongOrfs import find_ORFs, Translator, calculate_start_end
 
 def test_orf_NM_000014_6():
     sequence = """GGGACCAGATGGATTGTAGGGAGTAGGGTACAATACAGTCTGTTCTCCTCCAGCTCCTTC\
@@ -101,7 +101,6 @@ TTTTGTATCTTTAAAGACTTGATGAATAAACACTTTTTCTGGTCAATGTC\
             # print(orf_seq)
             count += 1
 
-    
 if __name__ == "__main__":
     test_orf_NM_000014_6()
     # run with python -m test.test_find_orfs_real

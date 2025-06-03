@@ -39,7 +39,7 @@ for codon, amino_acid in codon_to_amino_acid.items():
         amino_acid_to_codons[amino_acid] = []
     amino_acid_to_codons[amino_acid].append(codon)
 
-print("ORIGINGAL Codons for each Amino Acid:")
+print("ORIGINAL Codons for each Amino Acid:")
 for amino_acid, codons in sorted(amino_acid_to_codons.items()):
     print(f"{amino_acid}: {', '.join(sorted(codons))}")
 print()

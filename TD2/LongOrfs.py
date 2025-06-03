@@ -119,7 +119,8 @@ def load_fasta(filepath):
     return description_list, seq_list
     
 def readfq(fp): 
-    """Generator function for reading FASTA/FASTQ files. From Heng Li."""
+    """Generator function for reading FASTA/FASTQ files. From Heng Li.
+    NOTE: Ensure that the FASTA/FASTQ file is properly formatted, i.e. include a terminal newline."""
     last = None
     while True:
         if not last:
@@ -227,34 +228,37 @@ def create_gff_block(gene_id, gene_length, prot_length, start, end, strand, coun
     if orf_type == 'complete':
         if strand == '+':
             cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count}'
-            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
-            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
+            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}' if start > 1 else ''
+            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}' if end < gene_length else ''
         else:
             start, end = end, start
             cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count}'
-            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
-            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
-        block = '\n'.join([gene_line, mrna_line, five_UTR_line, exon_line, cds_line, three_UTR_line]) + '\n\n'
+            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}' if start > 1 else ''
+            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}' if end < gene_length else ''
+        gff_lines = [gene_line, mrna_line, five_UTR_line, exon_line, cds_line, three_UTR_line]
+        block = '\n'.join([line for line in gff_lines if line]) + '\n\n' # only join non-empty lines
     
     elif orf_type == '5prime_partial':
         if strand == '+':
             cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true'
-            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
+            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}' if end < gene_length else ''
         else:
             start, end = end, start
             cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true'
-            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}'
-        block = '\n'.join([gene_line, mrna_line, exon_line, cds_line, three_UTR_line]) + '\n\n'
+            three_UTR_line = f'{gene_id}\tTD2\tthree_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr3p1;Parent={gene_id}.p{count}' if start > 1 else ''
+        gff_lines = [gene_line, mrna_line, exon_line, cds_line, three_UTR_line]
+        block = '\n'.join([line for line in gff_lines if line]) + '\n\n' # only join non-empty lines
     
     elif orf_type == '3prime_partial':
         if strand == '+':
             cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};3_prime_partial=true'
-            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
+            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t1\t{start-1}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}' if start > 1 else ''
         else:
             start, end = end, start
             cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};3_prime_partial=true'
-            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}'
-        block = '\n'.join([gene_line, mrna_line, five_UTR_line, exon_line, cds_line]) + '\n\n'
+            five_UTR_line = f'{gene_id}\tTD2\tfive_prime_UTR\t{end+1}\t{gene_length}\t.\t{strand}\t.\tID={gene_id}.p{count}.utr5p1;Parent={gene_id}.p{count}' if end < gene_length else ''
+        gff_lines = [gene_line, mrna_line, five_UTR_line, exon_line, cds_line]
+        block = '\n'.join([line for line in gff_lines if line]) + '\n\n' # only join non-empty lines
         
     elif orf_type == 'internal':
         if strand == '+':
@@ -262,7 +266,7 @@ def create_gff_block(gene_id, gene_length, prot_length, start, end, strand, coun
         else:
             start, end = end, start
             cds_line = f'{gene_id}\tTD2\tCDS\t{start}\t{end}\t.\t{strand}\t0\tID=cds.{gene_id}.p{count};Parent={gene_id}.p{count};5_prime_partial=true;3_prime_partial=true'
-        block = '\n'.join([gene_line, mrna_line, exon_line, cds_line]) + '\n\n'
+        block = '\n'.join([gene_line, mrna_line, exon_line, cds_line]) + '\n\n' # no UTRs for internal ORFs
     
     else:
         raise ValueError(f"Invalid ORF type: {orf_type}")

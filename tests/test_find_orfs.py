@@ -1,4 +1,4 @@
-from app.translator import Translator
+from TD2.translator import Translator
 
 def test_orf_short():
     sequence = "ATGGATTCATGATGTGATCGTATGCTAG"
