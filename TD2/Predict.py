@@ -344,6 +344,20 @@ def main():
         pep_highcoord_list.append(highcoord)
         pep_ID_to_info[ID] = (transcript, lowcoord, highcoord, strand, threeprimecoord)
         ID_to_partial[ID] = partial
+
+    # open gff3 to get gene mapping
+    transcript_to_gene = dict()
+    with open(p_gff3, "rt") as f:
+        for line in f.readlines():
+            x = line.split("\t")
+            if len(x) < 3:
+                continue
+            if x[2] == "gene":
+                gene = str(x[-1].split("=")[1].split("~")[0])
+                if gene.startswith("GENE."):
+                    gene = gene[5:]
+                transcript = ".".join(x[-1].split(";")[0].split("~")[-1].split(".")[:-1])
+                transcript_to_gene[transcript] = gene
     
     # write final outputs to current working directory
     basename = os.path.basename(args.transcripts)
@@ -379,7 +393,10 @@ def main():
                 continue
             
             # get transcript info
-            gene = str(".".join(s[0].split(".")[:-1])) # TODO do we need to get gene ID from the tab delimited file?
+            transcript = str(".".join(s[0].split(".")[:-1]))
+            gene = transcript_to_gene[transcript]
+            if gene == transcript:
+                gene = "GENE." + transcript
             ORF_type = str(s[1].split(":")[1])
             psauron_score = '{:.3f}'.format(round(float(ID_to_score[ID]), 3))
             length = str(s[2].split(":")[1])
@@ -387,7 +404,7 @@ def main():
             strand = location[-3:]
             
             # match TransDecoder output format
-            description_line_final = ">" + ID + " GENE." + gene + "~~" + ID + "  ORF type:" + ORF_type + " " + strand + ",psauron_score=" + psauron_score + " len:" + length + " " + location + "\n"
+            description_line_final = ">" + ID + " " + gene + "~~" + ID + "  ORF type:" + ORF_type + " " + strand + ",psauron_score=" + psauron_score + " len:" + length + " " + location + "\n"
             seq_pep = seq_list_pep[i].rstrip()
             
             # keep info of IDs that pass filters

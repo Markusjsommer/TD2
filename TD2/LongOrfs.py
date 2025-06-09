@@ -342,7 +342,7 @@ def main():
                 transcript_gene_map[transcript_id] = gene_id
     else:
         transcript_gene_map = None
-    
+        
     print(f"Done. {time.time() - start_time:.3f} seconds", flush=True)
     
     #### DYNAMIC MEMORY MODE ####
