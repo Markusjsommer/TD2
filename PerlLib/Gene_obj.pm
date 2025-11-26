@@ -3591,20 +3591,20 @@ sub to_GFF3_format {
     
     
     my ($gene_lend, $gene_rend) = sort {$a<=>$b} $gene_obj->get_gene_span();
-    my $com_name = $gene_obj->{com_name};
-	unless ($com_name =~ /\w/) {
-		$com_name = "";
-	}
-	
-	if ($com_name) {
+    my $gene_com_name = $gene_obj->{com_name};
+    unless ($gene_com_name =~ /\w/) {
+        $gene_com_name = "";
+    }
+
+    if ($gene_com_name) {
         if ($preferences{uri_encode_name}) {
             # uri escape it:
             use URI::Escape;
-            $com_name = uri_escape($com_name);
+            $gene_com_name = uri_escape($gene_com_name);
         }
         else {
-            unless (substr($com_name,0,1) =~ /\'|\"/ && substr($com_name, -1, 1) =~ /\'|\"/) {
-                $com_name = "\"$com_name\"";
+            unless (substr($gene_com_name,0,1) =~ /\'|\"/ && substr($gene_com_name, -1, 1) =~ /\'|\"/) {
+                $gene_com_name = "\"$gene_com_name\"";
             }
         }
     }
@@ -3617,28 +3617,45 @@ sub to_GFF3_format {
     my $feat_type = ($gene_obj->{gene_type} eq "protein-coding") ? "gene" : $gene_obj->{gene_type};
     
 
-    my $gff3_text = "$asmbl_id\t$source\t$feat_type\t$gene_lend\t$gene_rend\t.\t$strand\t.\tID=$gene_id;Name=$com_name;$gene_alias\n";  ## note, non-coding gene features are currently represented by a simple single coordinate pair.
-    
+   my $gff3_text = "$asmbl_id\t$source\t$feat_type\t$gene_lend\t$gene_rend\t.\t$strand\t.\tID=$gene_id;Name=$gene_com_name;$gene_alias\n";
     if ($gene_obj->{gene_type} eq "protein-coding")  {
 		
         my $gene_obj_ref = $gene_obj;
         
         foreach my $gene_obj ($gene_obj_ref, $gene_obj_ref->get_additional_isoforms() ) {
             
-            my $model_id = $gene_obj->{Model_feat_name};
-            if ($model_id =~ /;/) {
-                $model_id = "\"$model_id\"";
+        my $model_id = $gene_obj->{Model_feat_name};
+        if ($model_id =~ /;/) {
+            $model_id = "\"$model_id\"";
+        }
+
+        my $model_alias = "";
+        if (my $model_locus = $gene_obj->{Model_pub_locus}) {
+            $model_alias = "Alias=$model_locus;";
+        }
+
+        my ($mrna_lend, $mrna_rend) = $gene_obj->get_transcript_span();
+
+        # NEW: isoform-specific name
+        my $model_com_name = $gene_obj->{com_name};
+
+        # if isoform com_name is empty, fallback to gene-level one
+        unless ($model_com_name =~ /\w/) {
+            $model_com_name = $gene_com_name;
+        }
+
+        if ($model_com_name && $preferences{uri_encode_name}) {
+            use URI::Escape;
+            $model_com_name = uri_escape($model_com_name);
+        }
+        
+        elsif ($model_com_name) {
+            unless (substr($model_com_name,0,1) =~ /\'|\"/ && substr($model_com_name, -1, 1) =~ /\'|\"/) {
+                $model_com_name = "\"$model_com_name\"";
             }
-            
-            my $model_alias = "";
-            if (my $model_locus = $gene_obj->{Model_pub_locus}) {
-				$model_alias = "Alias=$model_locus;";
-			}
-			      
-			my ($mrna_lend, $mrna_rend) = $gene_obj->get_transcript_span();
-      
-            $gff3_text .= "$asmbl_id\t$source\tmRNA\t$mrna_lend\t$mrna_rend\t.\t$strand\t.\tID=$model_id;Parent=$gene_id;Name=$com_name;$model_alias\n";
-            
+        }
+
+        $gff3_text .= "$asmbl_id\t$source\tmRNA\t$mrna_lend\t$mrna_rend\t.\t$strand\t.\tID=$model_id;Parent=$gene_id;Name=$model_com_name;$model_alias\n";            
             ## mark the first and last CDS entries (for now, an unpleasant hack!)
             my @exons = $gene_obj->get_exons();
             ## find the first cds
