@@ -315,8 +315,8 @@ sub place_orf_in_cdna_alignment_context {
             $WARNING_COUNT++;
             print STDERR "-Warning [$WARNING_COUNT], orf found on opposite strand of single-exon transcript. Reorienting transcribed direction accordingly to match orf orient on genome (-).\n";
 
+            print STDERR "Model_feat_name: $orf_gene_obj->{Model_feat_name}\n";
             print STDERR "CDS coords: $cds_span_lend, $cds_span_rend\n";
-            
             $cds_genome_lend = &from_cdna_genome_lend($cds_span_lend, \@exon_coords);
             $cds_genome_rend = &from_cdna_genome_lend($cds_span_rend, \@exon_coords);
             
@@ -334,7 +334,9 @@ sub place_orf_in_cdna_alignment_context {
 
             $WARNING_COUNT++;
             print STDERR "-Warning [$WARNING_COUNT], orf found on opposite strand of single-exon transcript. Reorienting transcribed direction accordingly to match orf orient on genome (+).\n";
-                        
+
+            print STDERR "Model_feat_name: $orf_gene_obj->{Model_feat_name}\n";
+            print STDERR "CDS coords: $cds_span_lend, $cds_span_rend\n";            
             $cds_genome_lend = &from_cdna_genome_lend($trans_seq_length - $cds_span_rend +1, \@exon_coords);
             $cds_genome_rend = &from_cdna_genome_lend($trans_seq_length - $cds_span_lend +1, \@exon_coords);
             $transcribed_orient = '+';
