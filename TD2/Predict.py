@@ -78,11 +78,14 @@ def find_encapsulated_intervals(intervals):
 
 #Schilling 1990 expected value
 def ER(n, p):
-    if n ==0:
+    if n == 0 or p>=1:
         return 0
     q = 1 - p
     # approximating r1 = e1 = 0
-    return math.log(n*q, 1/p) + np.euler_gamma/math.log(1/p) - 1/2
+    try:
+        return math.log(n*q, 1/p) + np.euler_gamma/math.log(1/p) - 1/2
+    except:
+        return 0
 
 # Schilling 1990 variance
 def VR(n, p):
