@@ -92,7 +92,10 @@ def VR(n, p):
     if n == 0:
         return 0
     # approximating r2 = e2 = 0
-    return np.pi**2 / (6 * math.log(1/p)**2) + 1/12
+    try:
+        return np.pi**2 / (6 * math.log(1/p)**2) + 1/12
+    except:
+        return 0
 
 def length_at_fdr(transcript_length, GC, fdr):
     p_TAA = (0.5 * (1-GC))**3
@@ -100,6 +103,10 @@ def length_at_fdr(transcript_length, GC, fdr):
     p_TGA = (0.5 * (1-GC))**2 * (0.5 * GC)
     p_stop = p_TAA + p_TAG + p_TGA
     # TODO alternate translation tables
+    
+    # catch 100% GC edge casse
+    if p_stop == 0:
+        return 2**31
     
     # use Schilling 1990 expected value and variance
     coin_flips = transcript_length / 3 # transcript is nucleotides, coin flip is each codon
@@ -220,9 +227,9 @@ def main():
         ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
                                 df_psauron["in_frame_score"]))
         # PSAURON style out-of-frame
-        #df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and np.mean(row[3:]) < psauron_cutoff, axis=1)]
+        df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and np.mean(row[3:]) < psauron_cutoff, axis=1)]
         # TransDecoder style out-of-frame
-        df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and all(row[3:] < row['in_frame_score']), axis=1)]
+        #df_psauron_selected = df_psauron[df_psauron.apply(lambda row: row['in_frame_score'] > psauron_cutoff and all(row[3:] < row['in_frame_score']), axis=1)]
     else:
         df_psauron = pandas.read_csv(p_score, skiprows=2)
         ID_to_score = dict(zip([str(x.split(" ")[0]) for x in df_psauron["description"].tolist()], 
