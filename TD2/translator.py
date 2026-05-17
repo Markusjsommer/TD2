@@ -1,13 +1,5 @@
-import warnings
-warnings.filterwarnings(
-    "ignore",
-    message="pkg_resources is deprecated as an API.*",
-    category=UserWarning,
-)
-# TODO replace setuptools
-
 import json
-import pkg_resources
+from importlib.resources import files
 
 class Translator:
     def __init__(self, table=1, three_letter=False, alt_start=False):
@@ -128,7 +120,7 @@ def standardize_sequence(sequence):
 
 def load_translation_table(table_num=1, alt_start=False):
     '''Get the corresponding translation table for the genetic code'''
-    path_table = pkg_resources.resource_filename(__name__, f'tables/table_{table_num}.json')
+    path_table = str(files('TD2').joinpath(f'tables/table_{table_num}.json'))
     with open(path_table, 'r') as file:
         data = json.load(file)
     if not alt_start:
